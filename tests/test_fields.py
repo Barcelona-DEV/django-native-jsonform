@@ -318,11 +318,16 @@ class JSONSchemaFormFieldTests(SimpleTestCase):
     def test_custom_format_can_use_a_project_specific_field(self):
         registry = default_registry.clone()
 
+        class AssetWidget(forms.TextInput):
+            class Media:
+                css = {"all": ("catalog/asset-picker.css",)}
+                js = ("catalog/asset-picker.js",)
+
         @registry.register_field("string", format="asset")
         def asset_field(context: FieldFactoryContext):
             return forms.CharField(
                 label=context.schema["title"],
-                widget=forms.TextInput(attrs={"data-asset-picker": ""}),
+                widget=AssetWidget(attrs={"data-asset-picker": ""}),
             )
 
         schema = {
@@ -339,6 +344,9 @@ class JSONSchemaFormFieldTests(SimpleTestCase):
         class AssetForm(JSONSchemaFormMixin, forms.Form):
             settings = JSONSchemaFormField(schema=schema, registry=registry)
 
-        html = str(AssetForm(initial={"settings": {}})["settings"])
+        form = AssetForm(initial={"settings": {}})
+        html = str(form["settings"])
 
         self.assertIn("data-asset-picker", html)
+        self.assertIn("catalog/asset-picker.js", str(form.media))
+        self.assertIn("catalog/asset-picker.css", str(form.media))

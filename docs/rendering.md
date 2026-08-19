@@ -66,5 +66,6 @@ Keep the `data-jsonform-*` attributes when replacing templates. They are the
 stable connection between generated HTML and progressive enhancement.
 
 Custom fields and widgets bring their own `Media` assets in the usual Django
-way. The package deliberately does not bundle jQuery, a CSS framework, or a
-specific admin theme.
+way. The composite widget aggregates the media from its generated child
+widgets after the form mixin seeds the binding. The package deliberately does
+not bundle jQuery, a CSS framework, or a specific admin theme.

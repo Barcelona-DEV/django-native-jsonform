@@ -143,7 +143,8 @@ def media_path_field(context):
 
 The widget may open an admin popup, upload a new object, use autocomplete, or
 return a stable URL/path. That implementation remains fully owned by the
-consumer.
+consumer. Assets declared by generated child widgets through Django's `Media`
+class are automatically included in the outer form's media.
 
 ## Register globally or locally?
 

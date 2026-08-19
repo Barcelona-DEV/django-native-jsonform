@@ -22,9 +22,17 @@ class JSONSchemaWidget(forms.Widget):
 
     template_name = "django_native_jsonform/widget.html"
 
-    class Media:
-        css = {"all": ("django_native_jsonform/json_forms.css",)}
-        js = ("django_native_jsonform/json_forms.js",)
+    @property
+    def media(self) -> forms.Media:
+        """Return core assets plus assets declared by generated child widgets."""
+
+        media = forms.Media(
+            css={"all": ("django_native_jsonform/json_forms.css",)},
+            js=("django_native_jsonform/json_forms.js",),
+        )
+        if self.binding is not None:
+            media += self.binding.form.media
+        return media
 
     def __init__(
         self,
