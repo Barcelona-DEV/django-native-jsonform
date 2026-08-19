@@ -1,0 +1,17 @@
+<div class="jsonform-node jsonform-leaf{% if field.errors %} errors{% endif %}"
+     data-jsonform-node data-jsonform-path="{{ node.path_string }}"{% if field.is_hidden %} hidden{% endif %}>
+  {{ presence }}
+  {% if field.is_hidden %}
+    {{ field }}
+  {% else %}
+    <div class="jsonform-label-row">
+      <label for="{{ field.id_for_label }}">{{ field.label }}{% if node.required %}<span class="required">*</span>{% endif %}</label>
+      {% if not node.required and not node.read_only %}
+        <button type="button" class="jsonform-unset" data-jsonform-unset>Use/remove value</button>
+      {% endif %}
+    </div>
+    {{ field }}
+    {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+    {{ field.errors }}
+  {% endif %}
+</div>

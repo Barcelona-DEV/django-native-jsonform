@@ -1,0 +1,20 @@
+<fieldset class="jsonform-node jsonform-union" data-jsonform-node data-jsonform-union data-jsonform-path="{{ node.path_string }}">
+  {{ presence }}
+  {% if node.title %}<legend>{{ node.title }}{% if node.required %}<span class="required">*</span>{% endif %}</legend>{% endif %}
+  {% if selector %}
+    <div class="jsonform-selector{% if selector.errors %} errors{% endif %}">
+      <label for="{{ selector.id_for_label }}">{{ selector.label }}</label>
+      {{ selector }}
+      {% if selector.help_text %}<div class="help">{{ selector.help_text }}</div>{% endif %}
+      {{ selector.errors }}
+    </div>
+  {% endif %}
+  {% if not node.required and not node.read_only %}
+    <button type="button" class="jsonform-unset jsonform-section-toggle" data-jsonform-unset>Use/remove section</button>
+  {% endif %}
+  <div class="jsonform-branches">
+    {% for branch in branches %}
+      <div data-jsonform-branch="{{ branch.index }}" data-jsonform-branch-value="{{ branch.value }}"{% if not branch.active %} hidden{% endif %}>{{ branch.html }}</div>
+    {% endfor %}
+  </div>
+</fieldset>

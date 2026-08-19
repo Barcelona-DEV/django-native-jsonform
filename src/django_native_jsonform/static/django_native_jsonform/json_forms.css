@@ -1,0 +1,74 @@
+.django-json-form {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 100%;
+}
+
+.django-json-form fieldset {
+  border: 1px solid var(--border-color, #d9d9d9);
+  border-radius: 4px;
+  margin: 0.5rem 0;
+  min-width: 0;
+  padding: 0.75rem;
+}
+
+.django-json-form legend {
+  font-weight: 600;
+  padding: 0 0.35rem;
+}
+
+.jsonform-children,
+.jsonform-branches,
+.jsonform-items {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.jsonform-leaf {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.jsonform-leaf input:not([type="checkbox"]):not([type="hidden"]),
+.jsonform-leaf select,
+.jsonform-leaf textarea,
+.jsonform-selector select {
+  box-sizing: border-box;
+  max-width: 100%;
+  width: 100%;
+}
+
+.jsonform-label-row,
+.jsonform-item-heading {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.jsonform-array-item {
+  background: color-mix(in srgb, currentColor 3%, transparent);
+  border-left: 3px solid var(--primary, #417690);
+  padding: 0.75rem;
+}
+
+.jsonform-unset,
+.jsonform-add,
+.jsonform-delete {
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.jsonform-deleted {
+  display: none;
+}
+
+.django-json-form .errorlist {
+  color: var(--error-fg, #ba2121);
+  margin: 0.25rem 0 0;
+}
+
+.django-json-form .required {
+  color: var(--error-fg, #ba2121);
+  margin-left: 0.2rem;
+}

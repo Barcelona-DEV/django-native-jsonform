@@ -1,0 +1,13 @@
+<fieldset class="jsonform-node jsonform-object" data-jsonform-node data-jsonform-path="{{ node.path_string }}">
+  {{ presence }}
+  {% if node.title %}
+    <legend>{{ node.title }}{% if node.required %}<span class="required">*</span>{% endif %}</legend>
+  {% endif %}
+  {% if node.help_text %}<div class="help">{{ node.help_text }}</div>{% endif %}
+  {% if not node.required and not node.read_only %}
+    <button type="button" class="jsonform-unset jsonform-section-toggle" data-jsonform-unset>Use/remove section</button>
+  {% endif %}
+  <div class="jsonform-children">
+    {% for child in children %}{{ child }}{% endfor %}
+  </div>
+</fieldset>

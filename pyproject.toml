@@ -1,0 +1,109 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "django-native-jsonform"
+version = "0.1.0"
+description = "Build deeply customizable native Django forms from JSON Schema."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+  { name = "andrico" },
+]
+keywords = [
+  "django",
+  "forms",
+  "json",
+  "json-schema",
+  "jsonfield",
+  "admin",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Web Environment",
+  "Framework :: Django",
+  "Framework :: Django :: 4.2",
+  "Framework :: Django :: 5.0",
+  "Framework :: Django :: 5.1",
+  "Framework :: Django :: 5.2",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+  "Typing :: Typed",
+]
+dependencies = [
+  "Django>=4.2,<6.0",
+]
+
+[project.optional-dependencies]
+test = [
+  "coverage[toml]>=7.6",
+  "pytest>=8.3",
+  "pytest-django>=4.9",
+]
+docs = [
+  "mkdocs>=1.6",
+  "mkdocs-material>=9.5",
+  "mkdocstrings[python]>=0.27",
+]
+dev = [
+  "coverage[toml]>=7.6",
+  "mkdocs>=1.6",
+  "mkdocs-material>=9.5",
+  "mkdocstrings[python]>=0.27",
+  "pytest>=8.3",
+  "pytest-django>=4.9",
+  "ruff>=0.8",
+]
+
+[project.urls]
+Documentation = "https://barcelona-dev.github.io/django-native-jsonform/"
+Issues = "https://github.com/Barcelona-DEV/django-native-jsonform/issues"
+Repository = "https://github.com/Barcelona-DEV/django-native-jsonform"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/django_native_jsonform"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src",
+  "/tests",
+  "/docs",
+  "/README.md",
+  "/LICENSE",
+  "/CHANGELOG.md",
+  "/mkdocs.yml",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+addopts = "--strict-config --strict-markers"
+pythonpath = ["src", "."]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["django_native_jsonform"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 90
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.format]
+quote-style = "double"

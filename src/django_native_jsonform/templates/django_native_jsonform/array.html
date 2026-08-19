@@ -1,0 +1,14 @@
+<fieldset class="jsonform-node jsonform-array" data-jsonform-node data-jsonform-array data-jsonform-path="{{ node.path_string }}" data-jsonform-index-token="{{ index_token }}">
+  {{ presence }}{{ count }}
+  {% if node.title %}<legend>{{ node.title }}{% if node.required %}<span class="required">*</span>{% endif %}</legend>{% endif %}
+  {% if node.help_text %}<div class="help">{{ node.help_text }}</div>{% endif %}
+  {{ count.errors }}
+  <div class="jsonform-items" data-jsonform-items>
+    {% for item in items %}{{ item }}{% endfor %}
+  </div>
+  <template data-jsonform-prototype>{{ prototype }}</template>
+  {% if not node.read_only %}
+    <button type="button" class="jsonform-add" data-jsonform-add>Add item</button>
+    {% if not node.required %}<button type="button" class="jsonform-unset" data-jsonform-unset>Use/remove list</button>{% endif %}
+  {% endif %}
+</fieldset>

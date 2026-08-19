@@ -1,0 +1,8 @@
+<div class="jsonform-array-item{% if node.deleted %} jsonform-deleted{% endif %}" data-jsonform-item {% if node.deleted %}hidden{% endif %}>
+  {{ delete }}
+  <div class="jsonform-item-heading">
+    <span>Item {{ index }}</span>
+    {% if not node.read_only %}<button type="button" class="jsonform-delete" data-jsonform-remove>Remove</button>{% endif %}
+  </div>
+  {{ child }}
+</div>
