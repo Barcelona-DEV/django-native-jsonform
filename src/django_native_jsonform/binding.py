@@ -614,18 +614,26 @@ class SchemaBinding:
             all_known.update(branch.get("properties", {}).keys())
         for index, branch in enumerate(branches):
             merged = self._merge_union_branch(schema, branch)
-            selected_known = set(merged.get("properties", {}).keys())
-            branch_initial = {
-                key: value
-                for key, value in initial_dict.items()
-                if key not in all_known or key in selected_known
-            }
+            if initial_dict:
+                selected_known = set(merged.get("properties", {}).keys())
+                branch_initial = {
+                    key: value
+                    for key, value in initial_dict.items()
+                    if key not in all_known or key in selected_known
+                }
+            elif index == selected:
+                # Scalar and array unions have no properties to filter. Pass
+                # their persisted value to the selected branch so its native
+                # Django field can hydrate it instead of rendering empty.
+                branch_initial = initial
+            else:
+                branch_initial = MISSING
             branch_exists = exists and index == selected
             branch_node = self._build_node(
                 merged,
                 path=path,
                 key_path=(*key_path, f"__branch_{index}__"),
-                initial=branch_initial if initial_dict else MISSING,
+                initial=branch_initial,
                 exists=branch_exists,
                 required=True,
                 active=active
@@ -948,24 +956,120 @@ class SchemaBinding:
                 pass
         candidates = [initial, schema.get("default")]
         for candidate in candidates:
-            if not isinstance(candidate, dict):
+            if candidate is MISSING:
                 continue
-            if discriminator and discriminator in candidate:
+            if (
+                isinstance(candidate, dict)
+                and discriminator
+                and discriminator in candidate
+            ):
                 for index, value in enumerate(branch_values):
                     if candidate[discriminator] == value:
                         return index
+            if isinstance(candidate, dict):
+                for index, branch in enumerate(branches):
+                    consts = {}
+                    for name, child in branch.get("properties", {}).items():
+                        value = self._single_schema_value(child)
+                        if value is not MISSING:
+                            consts[name] = value
+                    matches = all(
+                        candidate.get(name) == value for name, value in consts.items()
+                    )
+                    if consts and matches:
+                        return index
             for index, branch in enumerate(branches):
-                consts = {}
-                for name, child in branch.get("properties", {}).items():
-                    value = self._single_schema_value(child)
-                    if value is not MISSING:
-                        consts[name] = value
-                matches = all(
-                    candidate.get(name) == value for name, value in consts.items()
-                )
-                if consts and matches:
+                if self._schema_matches_value(branch, candidate):
                     return index
         return 0
+
+    def _schema_matches_value(self, schema: dict[str, Any], value: Any) -> bool:
+        """Return whether a persisted JSON value belongs to a union branch.
+
+        This is deliberately a small structural matcher, not a second JSON
+        Schema validator. Its purpose is to select the native Django widget
+        which can faithfully hydrate the existing value before validation.
+        """
+        schema = self._resolve_schema(schema)
+
+        if "const" in schema and not self._json_values_equal(value, schema["const"]):
+            return False
+        enum = schema.get("enum")
+        if isinstance(enum, list) and not any(
+            self._json_values_equal(value, choice) for choice in enum
+        ):
+            return False
+
+        nested_branches = schema.get("oneOf")
+        if isinstance(nested_branches, list):
+            return any(
+                self._schema_matches_value(branch, value)
+                for branch in nested_branches
+                if isinstance(branch, dict)
+            )
+
+        json_types = schema.get("type")
+        if json_types is None:
+            if "properties" in schema:
+                json_types = "object"
+            elif "items" in schema:
+                json_types = "array"
+            elif "const" not in schema and enum is None:
+                return True
+        if isinstance(json_types, str):
+            json_types = [json_types]
+        if isinstance(json_types, list) and not any(
+            self._value_matches_type(value, json_type) for json_type in json_types
+        ):
+            return False
+
+        if isinstance(value, dict):
+            required_names = schema.get("required", [])
+            if isinstance(required_names, list) and any(
+                name not in value for name in required_names
+            ):
+                return False
+            properties = schema.get("properties", {})
+            if isinstance(properties, dict):
+                for name, child_schema in properties.items():
+                    if (
+                        name in value
+                        and isinstance(child_schema, dict)
+                        and not self._schema_matches_value(child_schema, value[name])
+                    ):
+                        return False
+
+        if isinstance(value, list) and isinstance(schema.get("items"), dict):
+            return all(
+                self._schema_matches_value(schema["items"], item) for item in value
+            )
+        return True
+
+    def _value_matches_type(self, value: Any, json_type: Any) -> bool:
+        if json_type == "null":
+            return value is None
+        if json_type == "boolean":
+            return isinstance(value, bool)
+        if json_type == "integer":
+            return isinstance(value, int) and not isinstance(value, bool)
+        if json_type == "number":
+            return isinstance(value, (int, float, Decimal)) and not isinstance(
+                value, bool
+            )
+        if json_type == "string":
+            return isinstance(value, str)
+        if json_type == "object":
+            return isinstance(value, dict)
+        if json_type == "array":
+            return isinstance(value, list)
+        return False
+
+    def _json_values_equal(self, left: Any, right: Any) -> bool:
+        # Python considers True == 1, but JSON Schema treats booleans and
+        # numbers as different instance types.
+        if isinstance(left, bool) != isinstance(right, bool):
+            return False
+        return left == right
 
     def _union_discriminator(
         self,

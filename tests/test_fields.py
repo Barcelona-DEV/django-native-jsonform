@@ -247,6 +247,43 @@ class JSONSchemaFormFieldTests(SimpleTestCase):
         self.assertIn('value="manual"', html)
         self.assertIn('data-jsonform-branch-value="manual"', html)
 
+    def test_scalar_one_of_selects_and_hydrates_the_persisted_value(self):
+        schema = {
+            "type": "object",
+            "properties": {
+                "expected": {
+                    "title": "Expected value",
+                    "oneOf": [
+                        {"type": "string", "title": "Text"},
+                        {"type": "number", "title": "Number"},
+                        {"type": "boolean", "title": "Boolean"},
+                        {
+                            "type": "array",
+                            "title": "List",
+                            "items": {"type": "string"},
+                        },
+                    ],
+                }
+            },
+            "required": ["expected"],
+        }
+
+        class ScalarUnionForm(JSONSchemaFormMixin, forms.Form):
+            settings = JSONSchemaFormField(schema=schema)
+
+        form = ScalarUnionForm(initial={"settings": {"expected": 50}})
+        binding = form.fields["settings"].widget.binding
+        union = binding.root.children[0]
+
+        self.assertEqual(union.selected_branch, 1)
+        self.assertEqual(
+            binding.field_initial["expected____branch_1__"],
+            50,
+        )
+        html = str(form["settings"])
+        self.assertIn('value="1" selected', html)
+        self.assertIn('value="50"', html)
+
     def test_field_widget_serializer_and_path_errors_are_customizable(self):
         def validate(settings):
             if settings.get("profile", {}).get("bio") == "NOPE":

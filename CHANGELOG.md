@@ -6,6 +6,13 @@ All notable changes are documented here. The project follows
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-08-20
+
+### Fixed
+
+- Infer scalar and array `oneOf` branches from persisted JSON values and
+  hydrate the selected native Django widget with the existing value.
+
 ## [0.1.1] - 2026-08-20
 
 ### Changed
@@ -26,6 +33,7 @@ All notable changes are documented here. The project follows
 - Path-aware validation errors.
 - Versioned documentation wiki and GitHub publishing workflows.
 
-[Unreleased]: https://github.com/Barcelona-DEV/django-native-jsonform/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/Barcelona-DEV/django-native-jsonform/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/Barcelona-DEV/django-native-jsonform/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/Barcelona-DEV/django-native-jsonform/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Barcelona-DEV/django-native-jsonform/releases/tag/v0.1.0
