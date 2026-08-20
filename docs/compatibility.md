@@ -12,10 +12,10 @@ not read consumer settings by name.
 
 ## Supported versions
 
-The initial package metadata supports:
+The package metadata supports:
 
 - Python 3.10–3.13;
-- Django 4.2 and Django 5.x.
+- Django 4.2, Django 5.x, and Django 6.0 (Python 3.12+).
 
 Compatibility is exercised by the repository's CI matrix before releases.
 

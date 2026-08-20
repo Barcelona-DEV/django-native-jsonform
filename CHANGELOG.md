@@ -6,6 +6,12 @@ All notable changes are documented here. The project follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-20
+
+### Changed
+
+- Added package metadata and CI coverage for Django 6.0 on Python 3.12+.
+
 ## [0.1.0] - 2026-08-19
 
 ### Added
@@ -20,5 +26,6 @@ All notable changes are documented here. The project follows
 - Path-aware validation errors.
 - Versioned documentation wiki and GitHub publishing workflows.
 
-[Unreleased]: https://github.com/Barcelona-DEV/django-native-jsonform/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Barcelona-DEV/django-native-jsonform/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/Barcelona-DEV/django-native-jsonform/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Barcelona-DEV/django-native-jsonform/releases/tag/v0.1.0

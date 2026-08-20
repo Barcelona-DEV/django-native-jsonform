@@ -11,7 +11,7 @@ body:
     attributes:
       label: Versions
       description: Package, Django, and Python versions
-      placeholder: django-native-jsonform 0.1.0, Django 5.2, Python 3.12
+      placeholder: django-native-jsonform 0.1.1, Django 6.0, Python 3.12
     validations:
       required: true
   - type: textarea
