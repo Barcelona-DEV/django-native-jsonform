@@ -29,7 +29,7 @@
     if (element.hasAttribute("data-jsonform-node")) {
       presence = directInput(element, "data-jsonform-presence");
       if (element.tagName === "FIELDSET") {
-        childEnabled = enabled && (element.dataset.jsonformRequired === "true" || truthy(presence));
+        childEnabled = enabled && (element.dataset.jsonformPresenceMode === "auto" || element.dataset.jsonformRequired === "true" || truthy(presence));
       }
     }
     if (element.hasAttribute("data-jsonform-item")) {
@@ -59,7 +59,10 @@
     const items = directChild(array, "[data-jsonform-items]");
     if (!items) return;
     const live = Array.from(items.children).filter((item) => !truthy(directInput(item, "data-jsonform-delete")));
-    const minimum = Number(array.dataset.jsonformMinItems || 0);
+    // Optional automatic lists must be clearable to omission. Intermediate
+    // nonempty lengths still undergo full schema validation on submission.
+    const minimum = array.dataset.jsonformPresenceMode === "auto" && array.dataset.jsonformRequired !== "true"
+      ? 0 : Number(array.dataset.jsonformMinItems || 0);
     const maximum = array.dataset.jsonformMaxItems === "" ? Infinity : Number(array.dataset.jsonformMaxItems);
     const budget = Number(array.dataset.jsonformMaxRenderItems || 250);
     const add = directChild(array, "[data-jsonform-add]");

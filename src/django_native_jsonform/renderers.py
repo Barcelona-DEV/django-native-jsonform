@@ -48,6 +48,7 @@ class JSONFormRenderer:
             "binding": binding,
             "node": node,
             "presence": binding.bound_field(node.presence_key),
+            "show_presence_toggle": node.override.get("presence_mode") == "explicit",
         }
         if node.kind == "leaf":
             context["field"] = binding.bound_field(node.field_key)

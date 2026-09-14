@@ -6,6 +6,17 @@ All notable changes are documented here. The project follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-14
+
+### Changed
+
+- Optional fields and sections are editable without Use/remove buttons by default.
+- Automatic presence omits cleared optional values and empty sections while
+  preserving existing empty values, numeric zero, false and read-only values.
+- `presence_mode="explicit"` restores presence controls globally or by path.
+- Required values and the completed document remain subject to schema validation.
+- Regression coverage added; tests intentionally not executed.
+
 ## [0.2.0] - 2026-09-14
 
 ### Added
@@ -61,7 +72,8 @@ All notable changes are documented here. The project follows
 - Path-aware validation errors.
 - Versioned documentation wiki and GitHub publishing workflows.
 
-[Unreleased]: https://github.com/Barcelona-DEV/django-native-jsonform/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Barcelona-DEV/django-native-jsonform/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Barcelona-DEV/django-native-jsonform/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Barcelona-DEV/django-native-jsonform/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/Barcelona-DEV/django-native-jsonform/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/Barcelona-DEV/django-native-jsonform/compare/v0.1.0...v0.1.1

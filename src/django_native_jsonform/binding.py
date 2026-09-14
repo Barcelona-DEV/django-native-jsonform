@@ -108,6 +108,7 @@ class SchemaBinding:
         | None = None,
         field_resolver: FieldResolver | None = None,
         default_policy: str = "preserve",
+        presence_mode: str = "auto",
         preserve_unknown: bool = True,
         max_array_items: int = 250,
         max_depth: int = 32,
@@ -127,6 +128,9 @@ class SchemaBinding:
         self.overrides = overrides or {}
         self.field_resolver = field_resolver
         self.default_policy = default_policy
+        if presence_mode not in {"auto", "explicit"}:
+            raise ValueError("presence_mode must be 'auto' or 'explicit'")
+        self.presence_mode = presence_mode
         self.preserve_unknown = preserve_unknown
         self.max_array_items = max_array_items
         if max_array_items < 1 or max_depth < 1 or max_nodes < 1:
@@ -282,6 +286,9 @@ class SchemaBinding:
         override = self._override_for(
             path, schema, required, not active or read_only, initial, exists
         )
+        override.setdefault("presence_mode", self.presence_mode)
+        if override["presence_mode"] not in {"auto", "explicit"}:
+            raise ValueError("presence_mode must be 'auto' or 'explicit'")
         required = bool(
             override.get("required", required or schema.get("required") is True)
         )
@@ -489,6 +496,7 @@ class SchemaBinding:
         present = self._add_presence_field(
             presence_key,
             initial=required or exists or materialize,
+            mode=override["presence_mode"],
             active=active,
             prototype=prototype,
         )
@@ -562,6 +570,7 @@ class SchemaBinding:
             initial=required or exists or materialize,
             active=active,
             prototype=prototype,
+            mode=override["presence_mode"],
         )
         count_key = self._internal_key("count", key_path)
         raw_count = self._raw_value(count_key)
@@ -792,6 +801,7 @@ class SchemaBinding:
             initial=required or exists or materialize,
             active=active,
             prototype=prototype,
+            mode=override["presence_mode"],
         )
         node = self._base_node(
             "union",
@@ -875,6 +885,7 @@ class SchemaBinding:
             initial=required or exists or materialize,
             active=active,
             prototype=prototype,
+            mode=override["presence_mode"],
         )
         disabled = (
             read_only or not active or prototype or (self.is_bound and not present)
@@ -1063,7 +1074,13 @@ class SchemaBinding:
         )
 
     def _add_presence_field(
-        self, key: str, *, initial: bool, active: bool, prototype: bool
+        self,
+        key: str,
+        *,
+        initial: bool,
+        active: bool,
+        prototype: bool,
+        mode: str = "explicit",
     ) -> bool:
         raw = self._raw_value(key)
         if raw is None:
@@ -1079,7 +1096,7 @@ class SchemaBinding:
             ),
             initial,
         )
-        return present
+        return present or mode == "auto"
 
     def _add_field(self, key: str, field: forms.Field, initial: Any) -> None:
         if key in self.fields:
@@ -1488,6 +1505,63 @@ class SchemaBinding:
         return merged
 
     def _clean_node(self, node: Node) -> Any:
+        if (
+            node.kind == "leaf"
+            and node.active
+            and not node.required
+            and not node.read_only
+            and node.override.get("presence_mode") == "auto"
+        ):
+            field = self.fields[node.field_key]
+            name = self._html_name(node.field_key)
+            raw = field.widget.value_from_datadict(self.data, self.files or {}, name)
+            if field.widget.value_omitted_from_data(self.data, self.files or {}, name):
+                return deepcopy(node.initial) if node.exists else MISSING
+            if (
+                not node.exists
+                and not self._cleaned_truthy(node.presence_key)
+                and node.override.get("default_policy", self.default_policy)
+                == "preserve"
+                and not field.has_changed(self.field_initial[node.field_key], raw)
+            ):
+                return MISSING
+        value = self._clean_node_value(node)
+        if (
+            node.required
+            or node.read_only
+            or not node.active
+            or node.override.get("presence_mode") != "auto"
+        ):
+            return value
+        # Preserve already stored empty values. Clearing a populated optional
+        # value omits it; explicit mode exposes absence as a separate control.
+        if node.exists and self._json_values_equal(value, node.initial):
+            return value
+        if not self._has_content(value, node):
+            return MISSING
+        return value
+
+    def _has_content(self, value, node):
+        if value is MISSING or value is None or value == "":
+            return False
+        if node.kind == "union":
+            return self._has_content(value, node.branches[node.selected_branch])
+        if isinstance(value, dict) and node.kind == "object":
+            children = {child.json_key: child for child in node.children}
+            return any(
+                key not in children
+                or (
+                    "const" not in children[key].schema
+                    and self._has_content(item, children[key])
+                )
+                for key, item in value.items()
+            )
+        if isinstance(value, (dict, list)):
+            return bool(value)
+        # Zero and false are real JSON values, never generic "empty" values.
+        return True
+
+    def _clean_node_value(self, node: Node) -> Any:
         if not node.active:
             return MISSING
         if node.read_only:
@@ -1496,7 +1570,11 @@ class SchemaBinding:
                 if node.exists or (node.required and node.initial is not MISSING)
                 else MISSING
             )
-        present = node.required or self._cleaned_truthy(node.presence_key)
+        present = (
+            node.required
+            or node.override.get("presence_mode") == "auto"
+            or self._cleaned_truthy(node.presence_key)
+        )
 
         if node.kind == "leaf":
             if not present:

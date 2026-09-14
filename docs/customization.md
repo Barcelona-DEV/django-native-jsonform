@@ -47,6 +47,21 @@ configuration = JSONSchemaFormField(
 | `serialize` | convert cleaned Django values to JSON-compatible values |
 | `deserialize` | convert stored JSON before giving it to the widget |
 | `default_policy` | `preserve` or `materialize` for this path |
+| `presence_mode` | `auto` (default) or `explicit` to show Use/remove controls |
+
+Since 0.3.0, optional controls are always editable and presence is inferred on
+submission. Clearing a populated optional value omits its property; empty optional
+sections are omitted too. Existing empty strings, nulls and empty collections are
+preserved when unchanged. Zero and false are values, not emptiness. Required
+values remain present and the entire resulting document is validated against the
+schema. An empty string is allowed unless the schema forbids it (e.g. minLength).
+
+For workflows that must distinguish omission from a deliberately empty value,
+use `JSONSchemaFormField(schema=schema, presence_mode="explicit")`, or
+`overrides={"some.path": {"presence_mode": "explicit"}}`. This restores the
+presence button for the relevant optional node. Custom serializers and nullable
+schema branches still control the representation of null. Changing the default
+presence semantics is why this release is 0.3.0 rather than a 0.2.x patch.
 | `template` | replace the node template |
 | `selector_field` | custom choice field for a `oneOf` selector |
 | `selector_label` | label for a `oneOf` selector |

@@ -45,6 +45,7 @@ class JSONSchemaWidget(forms.Widget):
         renderer: JSONFormRenderer | None = None,
         templates: Mapping[str, str] | None = None,
         default_policy: str = "preserve",
+        presence_mode: str = "auto",
         preserve_unknown: bool = True,
         max_array_items: int = 250,
         max_depth: int = 32,
@@ -64,6 +65,7 @@ class JSONSchemaWidget(forms.Widget):
         self.field_resolver = field_resolver
         self.renderer = renderer or JSONFormRenderer(templates)
         self.default_policy = default_policy
+        self.presence_mode = presence_mode
         self.preserve_unknown = preserve_unknown
         self.max_array_items = max_array_items
         self.max_depth = max_depth
@@ -148,6 +150,7 @@ class JSONSchemaWidget(forms.Widget):
             overrides=self.overrides,
             field_resolver=self.field_resolver,
             default_policy=self.default_policy,
+            presence_mode=self.presence_mode,
             preserve_unknown=self.preserve_unknown,
             max_array_items=self.max_array_items,
             max_depth=self.max_depth,
@@ -164,6 +167,7 @@ class JSONSchemaWidget(forms.Widget):
             field_resolver=self.field_resolver,
             renderer=deepcopy(self.renderer, memo),
             default_policy=self.default_policy,
+            presence_mode=self.presence_mode,
             preserve_unknown=self.preserve_unknown,
             max_array_items=self.max_array_items,
             max_depth=self.max_depth,
