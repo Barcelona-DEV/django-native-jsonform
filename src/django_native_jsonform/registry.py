@@ -7,7 +7,6 @@ from decimal import Decimal
 from typing import Any
 
 from django import forms
-from django.core.exceptions import ValidationError
 
 FieldFactory = Callable[["FieldFactoryContext"], forms.Field]
 WidgetFactory = Callable[["WidgetFactoryContext"], forms.Widget]
@@ -132,8 +131,7 @@ def _string_field(context: FieldFactoryContext) -> forms.Field:
     schema = context.schema
     kwargs["min_length"] = schema.get("minLength")
     kwargs["max_length"] = schema.get("maxLength")
-    if schema.get("pattern"):
-        return forms.RegexField(regex=schema["pattern"], **kwargs)
+    kwargs["strip"] = False
     return forms.CharField(**kwargs)
 
 
@@ -179,13 +177,10 @@ def _number_field(context: FieldFactoryContext) -> forms.Field:
     schema = context.schema
     if schema.get("multipleOf") == 1:
         return _integer_field(context)
-    validators = []
-    if schema.get("multipleOf") is not None:
-        validators.append(_multiple_of(schema["multipleOf"]))
     return forms.DecimalField(
         min_value=schema.get("minimum"),
         max_value=schema.get("maximum"),
-        validators=validators,
+        widget=forms.NumberInput(attrs={"step": schema.get("multipleOf", "any")}),
         **_common_kwargs(context),
     )
 
@@ -211,16 +206,6 @@ def _infer_scalar_type(schema: dict[str, Any]) -> str:
     if isinstance(value, (float, Decimal)):
         return "number"
     return "string"
-
-
-def _multiple_of(multiple: int | float | Decimal):
-    divisor = Decimal(str(multiple))
-
-    def validator(value):
-        if value is not None and Decimal(str(value)) % divisor:
-            raise ValidationError(f"Ensure this value is a multiple of {multiple}.")
-
-    return validator
 
 
 def _humanize(path: tuple[str | int, ...]) -> str:

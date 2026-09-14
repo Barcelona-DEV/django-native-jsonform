@@ -11,9 +11,11 @@ from typing import Any
 from uuid import UUID
 
 from django import forms
+from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Model, QuerySet
 
 from .registry import FieldFactoryContext, JSONFormRegistry, clone_field
+from .validation import JSONSchemaValidator, Schema
 
 
 class _Missing:
@@ -64,6 +66,7 @@ class Node:
     serializer: Callable[[Any], Any] | None = None
     template_name: str | None = None
     override: dict[str, Any] = field(default_factory=dict)
+    errors: list[str] = field(default_factory=list)
 
     @property
     def path_string(self) -> str:
@@ -92,7 +95,7 @@ class SchemaBinding:
     def __init__(
         self,
         *,
-        schema: dict[str, Any],
+        schema: Schema,
         initial: Any,
         prefix: str,
         registry: JSONFormRegistry,
@@ -107,6 +110,9 @@ class SchemaBinding:
         default_policy: str = "preserve",
         preserve_unknown: bool = True,
         max_array_items: int = 250,
+        max_depth: int = 32,
+        max_nodes: int = 5000,
+        validation_options: Mapping[str, Any] | None = None,
         root_required: bool = True,
     ) -> None:
         if default_policy not in {"preserve", "materialize"}:
@@ -123,12 +129,21 @@ class SchemaBinding:
         self.default_policy = default_policy
         self.preserve_unknown = preserve_unknown
         self.max_array_items = max_array_items
+        if max_array_items < 1 or max_depth < 1 or max_nodes < 1:
+            raise ValueError("Editor resource limits must be positive")
+        self.max_depth = max_depth
+        self.max_nodes = max_nodes
+        self._node_count = 0
+        self.document_validator = JSONSchemaValidator(
+            schema, **(validation_options or {})
+        )
+        self._document_checked = False
         self.fields: OrderedDict[str, forms.Field] = OrderedDict()
         self.field_initial: dict[str, Any] = {}
         self.path_nodes: dict[str, list[Node]] = {}
         self._errors_applied: list[tuple[str, str]] = []
 
-        root_exists = initial is not MISSING and initial is not None
+        root_exists = initial is not MISSING
         root_initial = initial if root_exists else MISSING
         self.root = self._build_node(
             self.schema,
@@ -152,10 +167,55 @@ class SchemaBinding:
         if not self.is_bound:
             return False
         valid = self.form.is_valid()
-        if valid:
-            self._validate_collections(self.root)
+        if valid and not self._document_checked:
+            self._document_checked = True
+            value = self._clean_node(self.root)
+            if value is not MISSING:
+                self._attach_schema_issues(self.document_validator.issues(value))
+            elif self.root.required:
+                self.form.add_error(None, "This JSON value is required.")
             valid = not self.form.errors
         return valid
+
+    def _serialized_targets(self):
+        # Build a map in serialized coordinates: deleting array item 0 shifts
+        # item 1 to JSON position 0, but not to the same HTML field name.
+        targets = {}
+
+        def visit(node, path):
+            if not node.active or self._clean_node(node) is MISSING:
+                return
+            targets[path] = node
+            if node.kind == "object":
+                for child in node.children:
+                    visit(child, (*path, child.json_key))
+            elif node.kind == "union":
+                visit(node.branches[node.selected_branch], path)
+            elif node.kind == "array":
+                index = 0
+                for item in node.items:
+                    if self._cleaned_truthy(item.delete_key):
+                        continue
+                    visit(item.children[0], (*path, index))
+                    index += 1
+
+        visit(self.root, ())
+        return targets
+
+    def _attach_schema_issues(self, issues) -> None:
+        targets = self._serialized_targets()
+        for issue in issues:
+            path = issue.path
+            while path and path not in targets:
+                path = path[:-1]
+            target = targets.get(path, self.root)
+            target.errors.append(issue.message)
+            key = target.field_key or target.selector_key or target.count_key
+            # Store the path with a non-field error as well, so custom templates
+            # and raw JSON editors never silently hide a container error.
+            self.form.add_error(None, f"{issue.pointer or '/'}: {issue.message}")
+            if key and key in self.form.fields:
+                self.form.add_error(key, issue.message)
 
     def cleaned_value(self) -> Any:
         if not self.is_valid():
@@ -169,12 +229,29 @@ class SchemaBinding:
         # Ensure the flat form has completed its own validation before adding
         # application-level errors.
         self.form.is_valid()
+        targets = self._serialized_targets()
+        pointer_targets = {
+            "".join(
+                "/" + str(part).replace("~", "~0").replace("/", "~1") for part in path
+            ): node
+            for path, node in targets.items()
+        }
+        dot_targets = {path_to_string(path): node for path, node in targets.items()}
         for path, messages in errors.items():
-            candidates = self.path_nodes.get(path, [])
-            target = next((node for node in candidates if node.active), None)
-            field_key = target.field_key if target else None
+            locations = pointer_targets if path.startswith("/") else dot_targets
+            separator = "/" if path.startswith("/") else "."
+            nearest = path
+            while nearest and nearest not in locations:
+                nearest = (
+                    nearest.rsplit(separator, 1)[0] if separator in nearest else ""
+                )
+            target = locations.get(nearest, self.root)
+            field_key = target.field_key or target.selector_key or target.count_key
             for message in messages:
-                self.form.add_error(field_key, message)
+                target.errors.append(message)
+                self.form.add_error(None, f"{path or '/'}: {message}")
+                if field_key:
+                    self.form.add_error(field_key, message)
                 self._errors_applied.append((path, message))
 
     def bound_field(self, key: str | None):
@@ -195,6 +272,12 @@ class SchemaBinding:
         read_only: bool,
         prototype: bool = False,
     ) -> Node:
+        self._node_count += 1
+        if self._node_count > self.max_nodes:
+            raise ImproperlyConfigured(
+                "JSON form exceeds max_nodes. "
+                "Use a JSON editor override on a large subtree."
+            )
         schema = self._resolve_schema(schema)
         override = self._override_for(
             path, schema, required, not active or read_only, initial, exists
@@ -218,6 +301,38 @@ class SchemaBinding:
             and default_policy == "materialize"
             and not read_only
         )
+
+        raw_reason = self._raw_editor_reason(schema, display_initial, key_path)
+        if (
+            override.get("editor") == "json"
+            or override.get("field") is not None
+            or raw_reason
+        ):
+            if raw_reason:
+                override = {**override, "editor": "json", "editor_reason": raw_reason}
+            return self._build_leaf(
+                schema,
+                path=path,
+                key_path=key_path,
+                initial=display_initial,
+                exists=exists,
+                required=required,
+                active=active,
+                read_only=read_only,
+                materialize=materialize,
+                override=override,
+                prototype=prototype,
+            )
+
+        if isinstance(schema.get("type"), list):
+            schema = {
+                **schema,
+                "oneOf": [
+                    {"type": json_type, "title": json_type.capitalize()}
+                    for json_type in schema["type"]
+                ],
+            }
+            schema.pop("type")
 
         if "oneOf" in schema:
             return self._build_union(
@@ -279,6 +394,80 @@ class SchemaBinding:
             prototype=prototype,
         )
 
+    def _raw_editor_reason(self, schema, initial, key_path):
+        if schema.get("x-jsonform-raw"):
+            return "schema"
+        if len(key_path) >= self.max_depth:
+            return "depth"
+        if any(
+            key in schema
+            for key in (
+                "allOf",
+                "anyOf",
+                "if",
+                "then",
+                "else",
+                "dependentSchemas",
+                "patternProperties",
+                "propertyNames",
+                "prefixItems",
+                "$dynamicRef",
+            )
+        ):
+            return "composition"
+        if "$id" in schema and key_path:
+            return "resource"
+        if isinstance(schema.get("additionalProperties"), dict):
+            return "dynamic-properties"
+        if schema.get("additionalProperties") is True:
+            return "dynamic-properties"
+        if schema.get("type") == "object" or "properties" in schema:
+            properties = schema.get("properties", {})
+            if any("__" in name for name in properties):
+                return "reserved-property-names"
+            required = schema.get("required", [])
+            if not properties or (
+                isinstance(required, list) and set(required) - properties.keys()
+            ):
+                return "dynamic-properties"
+            if (
+                isinstance(initial, dict)
+                and initial.keys() - properties.keys()
+                and (
+                    schema.get("additionalProperties") is False
+                    or schema.get("unevaluatedProperties") is False
+                )
+            ):
+                return "extra-properties"
+        if isinstance(initial, list) and len(initial) > self.max_array_items:
+            return "large-array"
+        if schema.get("minItems", 0) > self.max_array_items:
+            return "large-array"
+        if isinstance(schema.get("items"), bool):
+            return "boolean-items"
+        if "oneOf" in schema and any(
+            not isinstance(branch, dict) for branch in schema["oneOf"]
+        ):
+            return "boolean-branches"
+        if isinstance(schema.get("type"), list) and {"number", "integer"}.issubset(
+            schema["type"]
+        ):
+            # A type union is inclusive, unlike oneOf's exact-one semantics.
+            return "overlapping-types"
+        if any(isinstance(choice, (dict, list)) for choice in schema.get("enum", [])):
+            return "structured-enum"
+        choices = schema.get("enum", [])
+        if None in choices or len({str(value) for value in choices}) != len(choices):
+            return "ambiguous-enum"
+        if "type" not in schema and isinstance(schema.get("default"), (dict, list)):
+            return "structured-default"
+        if "type" not in schema and not any(
+            key in schema
+            for key in ("properties", "oneOf", "const", "enum", "choices", "default")
+        ):
+            return "unconstrained"
+        return None
+
     def _build_object(
         self,
         schema: dict[str, Any],
@@ -323,7 +512,11 @@ class SchemaBinding:
         for name, child_schema in schema.get("properties", {}).items():
             child_exists = name in actual
             child_initial = actual[name] if child_exists else MISSING
-            if not child_exists and name in displayed_defaults:
+            if (
+                not child_exists
+                and name in displayed_defaults
+                and isinstance(child_schema, dict)
+            ):
                 child_schema = {
                     **child_schema,
                     "default": deepcopy(displayed_defaults[name]),
@@ -334,7 +527,11 @@ class SchemaBinding:
                 key_path=(*key_path, name),
                 initial=child_initial,
                 exists=child_exists,
-                required=name in required_names or child_schema.get("required") is True,
+                required=name in required_names
+                or (
+                    isinstance(child_schema, dict)
+                    and child_schema.get("required") is True
+                ),
                 active=child_active,
                 read_only=read_only,
                 prototype=prototype,
@@ -372,6 +569,9 @@ class SchemaBinding:
             count = int(raw_count) if raw_count not in (None, "") else len(values)
         except (TypeError, ValueError):
             count = len(values)
+        # Keep a bounded number of generated controls. A submitted count beyond
+        # this budget fails its IntegerField; existing large lists use the raw
+        # editor before reaching this method and are never truncated.
         count = min(max(count, 0), self.max_array_items)
         self._add_field(
             count_key,
@@ -380,7 +580,9 @@ class SchemaBinding:
                 min_value=0,
                 max_value=self.max_array_items,
                 widget=forms.HiddenInput(attrs={"data-jsonform-count": ""}),
-                disabled=prototype,
+                disabled=prototype
+                or not active
+                or (self.is_bound and not (required or present)),
             ),
             count,
         )
@@ -398,6 +600,7 @@ class SchemaBinding:
         )
         node.presence_key = presence_key
         node.count_key = count_key
+        node.override["max_render_items"] = self.max_array_items
         items_schema = schema.get("items", {})
         array_active = active and (required or present or not self.is_bound)
         for index in range(count):
@@ -412,6 +615,7 @@ class SchemaBinding:
                 forms.BooleanField(
                     required=False,
                     widget=forms.HiddenInput(attrs={"data-jsonform-delete": ""}),
+                    disabled=prototype or not active,
                 ),
                 False,
             )
@@ -463,7 +667,6 @@ class SchemaBinding:
                 widget=forms.HiddenInput(
                     attrs={
                         "data-jsonform-delete": "",
-                        "data-jsonform-permanent-disabled": "",
                     }
                 ),
                 disabled=True,
@@ -603,6 +806,9 @@ class SchemaBinding:
             override,
         )
         node.selector_key = selector_key
+        selector.disabled = selector.disabled or (
+            self.is_bound and not (required or present)
+        )
         node.presence_key = presence_key
         node.selected_branch = selected
         node.branch_values = branch_values
@@ -663,7 +869,16 @@ class SchemaBinding:
     ) -> Node:
         is_const = "const" in schema
         required = required or is_const
-        disabled = read_only or not active or prototype
+        presence_key = self._internal_key("present", key_path)
+        present = self._add_presence_field(
+            presence_key,
+            initial=required or exists or materialize,
+            active=active,
+            prototype=prototype,
+        )
+        disabled = (
+            read_only or not active or prototype or (self.is_bound and not present)
+        )
         build_context = BuildContext(
             path=path,
             schema=schema,
@@ -676,23 +891,17 @@ class SchemaBinding:
         )
         field = self._create_leaf_field(build_context)
         field.disabled = disabled or bool(override.get("disabled", False))
-        field.required = required and active and not field.disabled
+        # Presence belongs to JSON Schema. Empty strings, false, [], {}, and
+        # null are values, not missing Django form fields.
+        field.required = False
         if is_const:
             field.required = False
             field.disabled = True
             field.widget = forms.HiddenInput()
-        if read_only or override.get("disabled", False):
+        if is_const or read_only or override.get("disabled", False):
             field.widget.attrs["data-jsonform-permanent-disabled"] = ""
 
         field_key = self._field_key(key_path)
-        presence_key = self._internal_key("present", key_path)
-        present = required or exists or materialize
-        self._add_presence_field(
-            presence_key,
-            initial=present,
-            active=active,
-            prototype=prototype,
-        )
         value = (
             schema["const"] if is_const else (None if initial is MISSING else initial)
         )
@@ -739,9 +948,22 @@ class SchemaBinding:
             form_context=context.form_context,
         )
         if field is None:
-            field = self._choice_field(factory_context) or self.registry.create_field(
-                factory_context
-            )
+            if override.get("editor") == "json" or context.schema.get("type") == "null":
+                field = forms.JSONField(
+                    required=False,
+                    label=context.schema.get("title")
+                    or (str(context.path[-1]) if context.path else "Value"),
+                    help_text=context.schema.get(
+                        "description", context.schema.get("help_text", "")
+                    ),
+                    widget=forms.Textarea(
+                        attrs={"rows": 8, "data-jsonform-json-editor": ""}
+                    ),
+                )
+            else:
+                field = self._choice_field(
+                    factory_context
+                ) or self.registry.create_field(factory_context)
 
         widget = override.get("widget", context.schema.get("widget"))
         if isinstance(widget, str):
@@ -885,20 +1107,38 @@ class SchemaBinding:
         return f"__jsonform_{kind}__{suffix}"
 
     def _resolve_schema(self, schema: dict[str, Any]) -> dict[str, Any]:
-        if "$ref" not in schema:
-            return deepcopy(schema)
-        ref = schema["$ref"]
-        if not ref.startswith("#/"):
-            raise ValueError(f"Only local JSON schema references are supported: {ref}")
-        resolved: Any = self.schema
-        for part in ref[2:].split("/"):
-            part = part.replace("~1", "/").replace("~0", "~")
-            resolved = resolved[part]
-        merged = deepcopy(resolved)
-        merged.update(
-            {key: deepcopy(value) for key, value in schema.items() if key != "$ref"}
-        )
-        return merged
+        if isinstance(schema, bool):
+            return {"x-jsonform-raw": True}
+        result = deepcopy(schema)
+        seen = set()
+        while "$ref" in result:
+            ref = result["$ref"]
+            if not ref.startswith("#/") or ref in seen:
+                return {**result, "x-jsonform-raw": True}
+            seen.add(ref)
+            resolved: Any = self.schema
+            try:
+                for part in ref[2:].split("/"):
+                    resolved = resolved[part.replace("~1", "/").replace("~0", "~")]
+            except (KeyError, TypeError):
+                return {**result, "x-jsonform-raw": True}
+            if not isinstance(resolved, dict):
+                return {**result, "x-jsonform-raw": True}
+            siblings = {key: value for key, value in result.items() if key != "$ref"}
+            # Overlapping constraints must intersect, not overwrite. Let the
+            # JSON editor represent the complete value in that case.
+            overlapping = (resolved.keys() & siblings.keys()) - {
+                "title",
+                "description",
+                "default",
+                "help_text",
+                "widget",
+                "attrs",
+            }
+            if overlapping:
+                return {**result, "x-jsonform-raw": True}
+            result = {**deepcopy(resolved), **siblings}
+        return result
 
     def _override_for(
         self,
@@ -1069,6 +1309,15 @@ class SchemaBinding:
         # numbers as different instance types.
         if isinstance(left, bool) != isinstance(right, bool):
             return False
+        if isinstance(left, dict) and isinstance(right, dict):
+            return left.keys() == right.keys() and all(
+                self._json_values_equal(value, right[key])
+                for key, value in left.items()
+            )
+        if isinstance(left, list) and isinstance(right, list):
+            return len(left) == len(right) and all(
+                self._json_values_equal(a, b) for a, b in zip(left, right, strict=True)
+            )
         return left == right
 
     def _union_discriminator(
@@ -1212,12 +1461,13 @@ class SchemaBinding:
                 if key not in {"properties", "required"}
             }
         )
-        merged["type"] = merged.get("type", "object")
-        merged["properties"] = {
-            **deepcopy(schema.get("properties", {})),
-            **deepcopy(branch.get("properties", {})),
-        }
-        merged["required"] = list(
+        if "properties" in schema or "properties" in branch:
+            merged["properties"] = {
+                **deepcopy(schema.get("properties", {})),
+                **deepcopy(branch.get("properties", {})),
+            }
+            merged.setdefault("type", "object")
+        required_names = list(
             dict.fromkeys(
                 [
                     *(
@@ -1225,17 +1475,27 @@ class SchemaBinding:
                         if isinstance(schema.get("required"), list)
                         else []
                     ),
-                    *branch.get("required", []),
+                    *(
+                        branch.get("required", [])
+                        if isinstance(branch.get("required"), list)
+                        else []
+                    ),
                 ]
             )
         )
+        if required_names:
+            merged["required"] = required_names
         return merged
 
     def _clean_node(self, node: Node) -> Any:
         if not node.active:
             return MISSING
         if node.read_only:
-            return deepcopy(node.initial) if node.exists else MISSING
+            return (
+                deepcopy(node.initial)
+                if node.exists or (node.required and node.initial is not MISSING)
+                else MISSING
+            )
         present = node.required or self._cleaned_truthy(node.presence_key)
 
         if node.kind == "leaf":
@@ -1247,20 +1507,18 @@ class SchemaBinding:
             return node.serializer(value) if node.serializer else value
 
         if node.kind == "object":
+            if not present:
+                return MISSING
             original = (
                 node.initial if node.exists and isinstance(node.initial, dict) else {}
             )
             result = deepcopy(original) if self.preserve_unknown else {}
-            any_present = False
             for child in node.children:
                 value = self._clean_node(child)
                 if value is MISSING:
                     result.pop(child.json_key, None)
                 else:
                     result[child.json_key] = value
-                    any_present = True
-            if not present and not any_present:
-                return MISSING
             return result
 
         if node.kind == "union":
@@ -1302,45 +1560,8 @@ class SchemaBinding:
             return False
         return bool(self.form.cleaned_data.get(key, False))
 
-    def _validate_collections(self, node: Node) -> None:
-        if (
-            node.kind == "array"
-            and node.active
-            and (node.required or self._cleaned_truthy(node.presence_key))
-        ):
-            count = sum(
-                not self._cleaned_truthy(item.delete_key) for item in node.items
-            )
-            min_items = node.schema.get("minItems")
-            max_items = node.schema.get("maxItems")
-            if min_items is not None and count < min_items:
-                self.form.add_error(
-                    node.count_key,
-                    f"Ensure this list has at least {min_items} item(s).",
-                )
-            if max_items is not None and count > max_items:
-                self.form.add_error(
-                    node.count_key,
-                    f"Ensure this list has at most {max_items} item(s).",
-                )
-            if node.schema.get("uniqueItems"):
-                values = self._clean_node(node)
-                if any(
-                    value == previous
-                    for index, value in enumerate(values)
-                    for previous in values[:index]
-                ):
-                    self.form.add_error(
-                        node.count_key,
-                        "Ensure every item in this list is unique.",
-                    )
-        for child in [*node.children, *node.branches, *node.items]:
-            self._validate_collections(child)
 
-
-def resolve_schema(
-    schema: dict[str, Any] | Callable[..., dict[str, Any]], context: Any
-) -> dict[str, Any]:
+def resolve_schema(schema: Schema | Callable[..., Schema], context: Any) -> Schema:
     if not callable(schema):
         return deepcopy(schema)
     try:

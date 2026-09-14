@@ -1,5 +1,6 @@
 <div class="django-json-form{% if attrs.class %} {{ attrs.class }}{% endif %}"
      {% if attrs.id %}id="{{ attrs.id }}"{% endif %}
      data-jsonform-root>
+  {{ binding.form.non_field_errors }}
   {{ root_html }}
 </div>

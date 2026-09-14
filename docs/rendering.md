@@ -65,6 +65,14 @@ The included JavaScript handles:
 Keep the `data-jsonform-*` attributes when replacing templates. They are the
 stable connection between generated HTML and progressive enhancement.
 
+In 0.2.0, keep `data-jsonform-required` on container nodes and
+`data-jsonform-min-items`, `data-jsonform-max-items`, and
+`data-jsonform-max-render-items` on arrays. Preserve direct-child presence,
+count/deletion inputs and the items/prototype containers. Include
+`binding.form.non_field_errors` in the root template so document-level and raw
+editor errors remain visible. Read-only fields use
+`data-jsonform-permanent-disabled`; do not use that marker for cloneable controls.
+
 Custom fields and widgets bring their own `Media` assets in the usual Django
 way. The composite widget aggregates the media from its generated child
 widgets after the form mixin seeds the binding. The package deliberately does

@@ -1,4 +1,4 @@
-<fieldset class="jsonform-node jsonform-array" data-jsonform-node data-jsonform-array data-jsonform-path="{{ node.path_string }}" data-jsonform-index-token="{{ index_token }}">
+<fieldset class="jsonform-node jsonform-array" data-jsonform-node data-jsonform-array data-jsonform-required="{{ node.required|yesno:'true,false' }}" data-jsonform-min-items="{{ node.schema.minItems|default:0 }}" data-jsonform-max-items="{{ node.schema.maxItems|default_if_none:'' }}" data-jsonform-max-render-items="{{ node.override.max_render_items }}" data-jsonform-path="{{ node.path_string }}" data-jsonform-index-token="{{ index_token }}">
   {{ presence }}{{ count }}
   {% if node.title %}<legend>{{ node.title }}{% if node.required %}<span class="required">*</span>{% endif %}</legend>{% endif %}
   {% if node.help_text %}<div class="help">{{ node.help_text }}</div>{% endif %}

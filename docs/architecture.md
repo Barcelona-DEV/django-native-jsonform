@@ -18,6 +18,7 @@ JSONFormRenderer ---- node templates + progressive JS
         |
         v
 POST -> Django fields -> reconstructed JSON-compatible Python value
+     -> Draft 2020-12 document validation -> application validators
 ```
 
 ## Flat Django form, nested logical tree

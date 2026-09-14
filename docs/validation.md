@@ -1,11 +1,50 @@
 # Validation
 
-Every generated scalar is a real Django field. Constraints such as length,
-regular expressions, numeric bounds, choices, dates, URLs, email addresses,
-UUIDs, and custom field validation use Django's normal `clean()` path.
+Every generated scalar is a real Django field, cleaned through Django's normal
+pipeline. The composite field then reconstructs the complete JSON document and
+validates it independently with `jsonschema`'s Draft 2020-12 validator. Finally,
+application validators run. Custom fields cannot bypass document constraints.
 
-The composite field additionally validates array sizes and uniqueness before
-reconstructing the final Python object.
+Errors include JSON Pointer locations (`/levels/0/points`), appear in the widget
+summary and attach to the nearest editable child. Array locations account for
+deleted rows. Invalid schemas/unresolved references raise `ImproperlyConfigured`
+instead of being silently ignored. `max_errors=100` bounds collected errors.
+
+## Resources and formats
+
+```python
+configuration = JSONSchemaFormField(
+    schema={"$ref": "urn:example:configuration"},
+    schema_resources={
+        "urn:example:configuration": {
+            "type": "object",
+            "properties": {"contact": {"type": "string", "format": "email"}},
+            "required": ["contact"],
+            "additionalProperties": False,
+        },
+    },
+    validate_formats=True,
+)
+```
+
+Alternatively pass `schema_registry=referencing.Registry(...)` for explicitly
+controlled resource retrieval. The default registry does not access the network.
+`format_checker` accepts a `jsonschema.FormatChecker`, including custom checks.
+Document format checks default to off; built-in Django format fields retain
+their own validation. Content keywords do not decode files automatically.
+
+For validation outside a form:
+
+```python
+from django_native_jsonform import JSONSchemaValidator
+
+validator = JSONSchemaValidator(SCHEMA, validate_formats=True)
+validator(value)  # Raises JSONFormValidationError on an invalid document.
+issues = validator.issues(value)  # SchemaIssue path, pointer, keyword, message.
+```
+
+`normalize_schema` translates legacy `choices`, boolean leaf `required` and
+`readonly` without mutating the original schema or data in `const`/`default`.
 
 ## Whole-value validators
 
@@ -46,8 +85,10 @@ def validate_configuration(value):
         )
 ```
 
-Paths use the same dot notation as overrides. Error messages for paths that do
-not exist in the active schema remain available as non-field errors.
+Paths accept legacy dot notation or JSON Pointer (`/levels/0/points`). Use
+JSON Pointer for property names containing dots or slashes. Array indices refer
+to the reconstructed document, after deleted rows are removed. Errors attach to
+the nearest active editable node and remain available in the widget summary.
 
 ## Custom Django fields
 

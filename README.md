@@ -17,6 +17,9 @@ widgets, templates, admin integration, and extension points.
 - Objects, arrays, nested arrays, choices, local `$ref`, and discriminated
   `oneOf` branches.
 - Native Django fields and server-side validation—no client-only JSON editor.
+- Independent Draft 2020-12 document validation, including composition,
+  conditionals, tuple arrays, dynamic properties and registered references.
+- Replaceable native JSON editors for structures without generated child widgets.
 - Dynamic schemas with access to the current request, user, object, and form.
 - Exact-path, `*`, and `**` overrides for fields, widgets, attributes,
   serializers, defaults, permissions, and templates.

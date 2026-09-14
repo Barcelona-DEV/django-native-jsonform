@@ -15,6 +15,7 @@ from .binding import (
 )
 from .registry import JSONFormRegistry, default_registry
 from .renderers import JSONFormRenderer
+from .validation import JSONSchemaValidator, Schema
 
 
 class JSONSchemaWidget(forms.Widget):
@@ -37,7 +38,7 @@ class JSONSchemaWidget(forms.Widget):
     def __init__(
         self,
         *,
-        schema: dict[str, Any] | Callable[..., dict[str, Any]],
+        schema: Schema | Callable[..., Schema],
         registry: JSONFormRegistry | None = None,
         overrides: Mapping[str, Mapping[str, Any] | Callable] | None = None,
         field_resolver: FieldResolver | None = None,
@@ -46,6 +47,13 @@ class JSONSchemaWidget(forms.Widget):
         default_policy: str = "preserve",
         preserve_unknown: bool = True,
         max_array_items: int = 250,
+        max_depth: int = 32,
+        max_nodes: int = 5000,
+        schema_registry=None,
+        schema_resources=None,
+        validate_formats: bool = False,
+        format_checker=None,
+        max_errors: int = 100,
         root_required: bool = True,
         attrs: Mapping[str, Any] | None = None,
     ) -> None:
@@ -58,6 +66,15 @@ class JSONSchemaWidget(forms.Widget):
         self.default_policy = default_policy
         self.preserve_unknown = preserve_unknown
         self.max_array_items = max_array_items
+        self.max_depth = max_depth
+        self.max_nodes = max_nodes
+        self.validation_options = {
+            "schema_registry": schema_registry,
+            "schema_resources": deepcopy(schema_resources),
+            "validate_formats": validate_formats,
+            "format_checker": format_checker,
+            "max_errors": max_errors,
+        }
         self.root_required = root_required
         self.context: Any = None
         # Compatibility surface for schema callables which receive an object.
@@ -81,7 +98,11 @@ class JSONSchemaWidget(forms.Widget):
                 self.binding = self.bind(value)
             binding = self.binding
         else:
-            initial = MISSING if value is None else value
+            initial = value
+            if value is None and (
+                self.binding is None or self.binding.initial is MISSING
+            ):
+                initial = MISSING
             binding = self.build_binding(initial=initial, prefix=name)
             self.binding = binding
         final_attrs = self.build_attrs(self.attrs, attrs)
@@ -93,6 +114,12 @@ class JSONSchemaWidget(forms.Widget):
             prefix=submission.prefix,
             data=submission.data,
             files=submission.files,
+        )
+
+    def document_validator(self):
+        return JSONSchemaValidator(
+            resolve_schema(self.schema, self.context or self.instance),
+            **self.validation_options,
         )
 
     def build_binding(
@@ -123,6 +150,9 @@ class JSONSchemaWidget(forms.Widget):
             default_policy=self.default_policy,
             preserve_unknown=self.preserve_unknown,
             max_array_items=self.max_array_items,
+            max_depth=self.max_depth,
+            max_nodes=self.max_nodes,
+            validation_options=self.validation_options,
             root_required=self.root_required,
         )
 
@@ -136,6 +166,9 @@ class JSONSchemaWidget(forms.Widget):
             default_policy=self.default_policy,
             preserve_unknown=self.preserve_unknown,
             max_array_items=self.max_array_items,
+            max_depth=self.max_depth,
+            max_nodes=self.max_nodes,
+            **self.validation_options,
             root_required=self.root_required,
             attrs=deepcopy(self.attrs, memo),
         )

@@ -7,8 +7,10 @@ and widget for editing its value.
 
 ## Is it a complete JSON Schema validator?
 
-No. It implements an editable subset and delegates validation to Django
-fields. Add whole-value validators for domain rules or unsupported keywords.
+Document validation delegates to `jsonschema` Draft 2020-12 after Django fields
+are cleaned. Not every keyword has a generated visual editor: complex subtrees
+use a replaceable native JSON textarea. Formats are opt-in at the document
+layer and content keywords are annotations. See the [schema reference](schema-reference.md).
 
 ## Can it use my existing Django widget?
 

@@ -1,4 +1,4 @@
-<fieldset class="jsonform-node jsonform-union" data-jsonform-node data-jsonform-union data-jsonform-path="{{ node.path_string }}">
+<fieldset class="jsonform-node jsonform-union" data-jsonform-node data-jsonform-union data-jsonform-required="{{ node.required|yesno:'true,false' }}" data-jsonform-path="{{ node.path_string }}">
   {{ presence }}
   {% if node.title %}<legend>{{ node.title }}{% if node.required %}<span class="required">*</span>{% endif %}</legend>{% endif %}
   {% if selector %}

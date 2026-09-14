@@ -17,10 +17,56 @@
     }
   }
 
-  function setEnabled(container, enabled) {
-    container.querySelectorAll("input, select, textarea, button").forEach((input) => {
-      if (input.hasAttribute("data-jsonform-permanent-disabled")) return;
-      input.disabled = !enabled;
+  const truthy = (input) => input && ["true", "1"].includes(String(input.value).toLowerCase());
+
+  // Refresh top-down: enabling a parent must not enable a deleted item or an
+  // inactive nested variant. Templates are inert and skipped until cloned.
+  function refresh(element, enabled = true) {
+    if (element.tagName === "TEMPLATE") return;
+    let childEnabled = enabled;
+    let presence = null;
+    let deletion = null;
+    if (element.hasAttribute("data-jsonform-node")) {
+      presence = directInput(element, "data-jsonform-presence");
+      if (element.tagName === "FIELDSET") {
+        childEnabled = enabled && (element.dataset.jsonformRequired === "true" || truthy(presence));
+      }
+    }
+    if (element.hasAttribute("data-jsonform-item")) {
+      deletion = directInput(element, "data-jsonform-delete");
+      element.hidden = truthy(deletion);
+      childEnabled = enabled && !element.hidden;
+    }
+    if (element.hasAttribute("data-jsonform-branch")) {
+      const union = element.closest("[data-jsonform-union]");
+      const selector = union.querySelector("[data-jsonform-selector]");
+      if (selector) element.hidden = (element.dataset.jsonformBranchValue ?? element.dataset.jsonformBranch) !== String(selector.value);
+      childEnabled = enabled && !element.hidden;
+    }
+    if (element.matches("input, select, textarea, button")) {
+      element.disabled = !enabled || element.hasAttribute("data-jsonform-permanent-disabled");
+    }
+    for (const child of element.children) {
+      // Presence toggles and deletion markers remain submitted when their
+      // own container is absent/deleted, but not when an ancestor is inactive.
+      const ownControl = child === presence || child === deletion || child.hasAttribute("data-jsonform-unset");
+      refresh(child, ownControl ? enabled : childEnabled);
+    }
+    if (element.hasAttribute("data-jsonform-array")) updateArrayLimits(element, childEnabled);
+  }
+
+  function updateArrayLimits(array, enabled) {
+    const items = directChild(array, "[data-jsonform-items]");
+    if (!items) return;
+    const live = Array.from(items.children).filter((item) => !truthy(directInput(item, "data-jsonform-delete")));
+    const minimum = Number(array.dataset.jsonformMinItems || 0);
+    const maximum = array.dataset.jsonformMaxItems === "" ? Infinity : Number(array.dataset.jsonformMaxItems);
+    const budget = Number(array.dataset.jsonformMaxRenderItems || 250);
+    const add = directChild(array, "[data-jsonform-add]");
+    if (add) add.disabled = !enabled || live.length >= maximum || live.length >= budget;
+    live.forEach((item) => {
+      const remove = directChild(item, ".jsonform-item-heading")?.querySelector("[data-jsonform-remove]");
+      if (remove) remove.disabled = !enabled || live.length <= minimum;
     });
   }
 
@@ -35,26 +81,11 @@
     const union = select.closest("[data-jsonform-union]");
     if (!union) return;
     if (markAsPresent) markPresent(select);
-    const branches = directChild(union, ".jsonform-branches");
-    if (!branches) return;
-    Array.from(branches.children).forEach((branch) => {
-      if (!branch.hasAttribute("data-jsonform-branch")) return;
-      const branchValue = branch.dataset.jsonformBranchValue ?? branch.dataset.jsonformBranch;
-      const selected = branchValue === String(select.value);
-      branch.hidden = !selected;
-      setEnabled(branch, selected && !select.disabled);
-      if (selected && !select.disabled) {
-        branch.querySelectorAll("[data-jsonform-selector]").forEach((nested) => {
-          switchUnion(nested, false);
-        });
-      }
-    });
+    refresh(union.closest("[data-jsonform-root]"));
   }
 
   function initialize(root) {
-    root.querySelectorAll("[data-jsonform-selector]").forEach((selector) => {
-      switchUnion(selector, false);
-    });
+    root.querySelectorAll("[data-jsonform-root]").forEach((form) => refresh(form));
   }
 
   function addArrayItem(button) {
@@ -63,17 +94,20 @@
     const items = array.querySelector(":scope > [data-jsonform-items]");
     const count = directInput(array, "data-jsonform-count");
     if (!template || !items || !count) return;
-    const index = Number.parseInt(count.value || "0", 10);
+    const deleted = Array.from(items.children).find((item) => truthy(directInput(item, "data-jsonform-delete")));
+    const index = deleted ? Array.from(items.children).indexOf(deleted) : Number.parseInt(count.value || "0", 10);
     const token = array.dataset.jsonformIndexToken;
     const wrapper = document.createElement("div");
     wrapper.innerHTML = template.innerHTML.split(token).join(String(index));
     const item = wrapper.firstElementChild;
     if (!item) return;
-    setEnabled(item, true);
-    initialize(item);
-    items.appendChild(item);
-    count.value = String(index + 1);
+    if (deleted) deleted.replaceWith(item);
+    else {
+      items.appendChild(item);
+      count.value = String(index + 1);
+    }
     markPresent(button);
+    refresh(array.closest("[data-jsonform-root]"));
   }
 
   function removeArrayItem(button) {
@@ -84,10 +118,7 @@
       deletion.disabled = false;
       deletion.value = "True";
     }
-    item.querySelectorAll("input, select, textarea").forEach((input) => {
-      if (input !== deletion) input.disabled = true;
-    });
-    item.hidden = true;
+    refresh(item.closest("[data-jsonform-root]"));
   }
 
   function togglePresence(button) {
@@ -98,16 +129,8 @@
     const enable = !["true", "1"].includes(String(presence.value).toLowerCase());
     presence.disabled = false;
     presence.value = enable ? "True" : "False";
-    if (node.matches("fieldset")) {
-      setEnabled(node, enable);
-      presence.disabled = false;
-      button.disabled = false;
-      if (enable) {
-        node.querySelectorAll("[data-jsonform-selector]").forEach((selector) => {
-          switchUnion(selector, false);
-        });
-      }
-    }
+    if (enable) markPresent(button);
+    refresh(node.closest("[data-jsonform-root]"));
   }
 
   function handleChange(target) {
@@ -153,7 +176,7 @@
 
   document.addEventListener("click", function (event) {
     const button = event.target.closest("button");
-    if (!button || !button.closest("[data-jsonform-root]")) return;
+    if (!button || button.disabled || !button.closest("[data-jsonform-root]")) return;
     if (button.hasAttribute("data-jsonform-add")) addArrayItem(button);
     if (button.hasAttribute("data-jsonform-remove")) removeArrayItem(button);
     if (button.hasAttribute("data-jsonform-unset")) togglePresence(button);

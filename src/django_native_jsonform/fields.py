@@ -13,6 +13,7 @@ from .binding import MISSING, FieldResolver, JSONFormSubmission
 from .exceptions import JSONFormValidationError
 from .registry import JSONFormRegistry
 from .renderers import JSONFormRenderer
+from .validation import Schema
 from .widgets import JSONSchemaWidget
 
 
@@ -29,7 +30,7 @@ class JSONSchemaFormField(forms.Field):
     def __init__(
         self,
         *,
-        schema: dict[str, Any] | Callable[..., dict[str, Any]],
+        schema: Schema | Callable[..., Schema],
         registry: JSONFormRegistry | None = None,
         overrides: Mapping[str, Mapping[str, Any] | Callable] | None = None,
         field_resolver: FieldResolver | None = None,
@@ -38,6 +39,13 @@ class JSONSchemaFormField(forms.Field):
         default_policy: str = "preserve",
         preserve_unknown: bool = True,
         max_array_items: int = 250,
+        max_depth: int = 32,
+        max_nodes: int = 5000,
+        schema_registry=None,
+        schema_resources=None,
+        validate_formats: bool = False,
+        format_checker=None,
+        max_errors: int = 100,
         **kwargs,
     ) -> None:
         widget_attrs = kwargs.pop("widget_attrs", None)
@@ -51,6 +59,13 @@ class JSONSchemaFormField(forms.Field):
             default_policy=default_policy,
             preserve_unknown=preserve_unknown,
             max_array_items=max_array_items,
+            max_depth=max_depth,
+            max_nodes=max_nodes,
+            schema_registry=schema_registry,
+            schema_resources=schema_resources,
+            validate_formats=validate_formats,
+            format_checker=format_checker,
+            max_errors=max_errors,
             root_required=kwargs.get("required", True),
             attrs=widget_attrs,
         )
@@ -61,7 +76,15 @@ class JSONSchemaFormField(forms.Field):
 
     def clean(self, value):
         if not isinstance(value, JSONFormSubmission):
-            value = super().clean(value)
+            if value is MISSING:
+                if self.required:
+                    raise ValidationError(
+                        self.error_messages["required"], code="required"
+                    )
+                return None
+            value = self.to_python(value)
+            self.widget.document_validator()(value)
+            self.run_validators(value)
             return value
 
         binding = self.widget.bind(value)
@@ -74,7 +97,6 @@ class JSONSchemaFormField(forms.Field):
         cleaned = binding._clean_node(binding.root)
         if cleaned is MISSING:
             cleaned = None
-        self.validate(cleaned)
         self._run_json_validators(cleaned, binding)
         return cleaned
 
@@ -90,7 +112,7 @@ class JSONSchemaFormField(forms.Field):
         cleaned = binding._clean_node(binding.root)
         if cleaned is MISSING:
             cleaned = None
-        return initial != cleaned
+        return not binding._json_values_equal(initial, cleaned)
 
     def _run_json_validators(self, value, binding) -> None:
         errors = []
@@ -119,7 +141,11 @@ class JSONSchemaFormMixin:
                 field.set_context(self.get_json_form_context(name))
                 # Seed the widget before validation so a bound form can merge
                 # generated values into the model's existing sparse JSON.
-                initial = self.initial.get(name)
+                initial = (
+                    self.get_initial_for_field(field, name)
+                    if name in self.initial or field.initial is not None
+                    else MISSING
+                )
                 field.widget.binding = field.widget.build_binding(
                     initial=initial,
                     prefix=self.add_prefix(name),

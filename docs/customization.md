@@ -36,6 +36,7 @@ configuration = JSONSchemaFormField(
 | Key | Purpose |
 | --- | --- |
 | `field` | Django field instance, class, or `BuildContext` factory |
+| `editor` | `"json"` forces a native JSON editor for any subtree |
 | `widget` | registry name, widget instance/class, or factory |
 | `attrs` | HTML attributes merged into the final widget |
 | `label` | replace the generated label |
@@ -51,6 +52,14 @@ configuration = JSONSchemaFormField(
 | `selector_label` | label for a `oneOf` selector |
 | `selector_help_text` | help text for a `oneOf` selector |
 | `selector_attrs` | widget attributes for a `oneOf` selector |
+
+`required` customizes UI presence; it cannot relax the schema's own `required`
+constraint. `serialize` must return a value satisfying the original schema:
+for example, serializing a decimal as `str` requires a string schema, not a
+number schema. Fields can replace entire objects/arrays as well as scalar leaves.
+
+For complex fallback editors, the same widget/field/template overrides apply.
+The schema validation layer always receives the complete serialized JSON.
 
 ## Context-aware overrides
 
