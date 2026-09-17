@@ -3,7 +3,7 @@
   {{ order }}
   <div class="jsonform-item-heading">
     <span data-jsonform-item-label>Item {{ index }}</span>
-    {% if not node.read_only %}<button type="button" data-jsonform-move="up" aria-label="Move item up" title="Move item up">↑</button><button type="button" data-jsonform-move="down" aria-label="Move item down" title="Move item down">↓</button><button type="button" class="jsonform-delete" data-jsonform-remove>Remove</button>{% endif %}
+    {% if not node.read_only %}<div class="jsonform-order-controls"><button type="button" data-jsonform-move="up" aria-label="Move item up" title="Move item up">↑</button><button type="button" data-jsonform-move="down" aria-label="Move item down" title="Move item down">↓</button></div><button type="button" class="jsonform-delete" data-jsonform-remove>Remove</button>{% endif %}
   </div>
   {{ child }}
 </div>

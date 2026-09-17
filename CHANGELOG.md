@@ -6,6 +6,14 @@ All notable changes are documented here. The project follows
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-17
+
+### Fixed
+
+- Version static asset filenames to prevent cached pre-reorder JavaScript from
+  being served with newer array templates.
+- Group up/down controls together in the center of each array item heading.
+
 ## [0.5.0] - 2026-09-17
 
 ### Added

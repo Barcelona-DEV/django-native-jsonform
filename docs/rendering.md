@@ -86,3 +86,7 @@ maintain independent order. Boundary buttons are disabled and read-only arrays
 hide the controls. Older submissions without order metadata keep their original
 order. Custom array-item templates should render `{{ order }}` alongside
 `{{ delete }}` and preserve `data-jsonform-index="{{ index }}"` on the item.
+
+Static CSS and JavaScript use versioned filenames. When changing either asset,
+bump the filenames and widget media paths together so browser/CDN caches cannot
+combine an older script with newer templates. Deployments must run collectstatic.

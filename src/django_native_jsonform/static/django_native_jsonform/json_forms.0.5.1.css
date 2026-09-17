@@ -72,3 +72,18 @@
   color: var(--error-fg, #ba2121);
   margin-left: 0.2rem;
 }
+
+/* Keep the move controls grouped between the label and remove action. */
+.jsonform-item-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+.jsonform-order-controls {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.jsonform-item-heading > .jsonform-delete {
+  justify-self: end;
+}
