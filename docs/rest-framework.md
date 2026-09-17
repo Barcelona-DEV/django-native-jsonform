@@ -34,7 +34,9 @@ ConfigSerializer = serializer_from_schema(
     json_api=True,
 )
 
-serializer = ConfigSerializer(data={"title": "Expert Crossword", "shortTitle": "Expert"})
+serializer = ConfigSerializer(
+    data={"title": "Expert Crossword", "shortTitle": "Expert"}
+)
 serializer.is_valid(raise_exception=True)
 # With JSON_API_FORMAT_FIELD_NAMES = "camelize":
 # serializer.validated_data == {"title": "Expert Crossword", "short_title": "Expert"}
@@ -51,6 +53,7 @@ browsable forms and OpenAPI field enumeration do not appear automatically.
 ```python
 from rest_framework import serializers
 from django_native_jsonform.rest_framework import JSONSchemaField
+
 
 class GameConfigurationSerializer(serializers.ModelSerializer):
     config = JSONSchemaField(schema=config_schema, json_api=True)
