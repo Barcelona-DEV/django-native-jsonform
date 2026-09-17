@@ -1,4 +1,4 @@
-"""Draft 2020-12 regressions. Added without running tests at user request."""
+"""Draft 2020-12 document and native form regressions."""
 
 from copy import deepcopy
 
@@ -200,7 +200,9 @@ def test_custom_field_cannot_bypass_document_validation():
         overrides={"$": {"field": forms.IntegerField()}},
     )
     assert not form.is_valid()
-    assert "greater than" in str(form["value"])
+    binding = form.fields["value"].widget.binding
+    assert binding.form[binding.root.field_key].errors
+    assert "5" in str(form["value"])
 
 
 def test_whitespace_and_required_empty_string():
@@ -222,6 +224,7 @@ def test_absent_optional_invalid_values_are_ignored():
     }
     form = make_form(
         schema,
+        presence_mode="explicit",
         data={"value-number": "garbage", "value-__jsonform_present__number": "False"},
         initial={},
     )
@@ -234,7 +237,12 @@ def test_absent_optional_union_does_not_require_a_selector():
         "type": "object",
         "properties": {"v": {"oneOf": [{"type": "string"}, {"type": "integer"}]}},
     }
-    form = make_form(schema, data={"value-__jsonform_present__v": "False"}, initial={})
+    form = make_form(
+        schema,
+        data={"value-__jsonform_present__v": "False"},
+        initial={},
+        presence_mode="explicit",
+    )
     assert form.is_valid(), form.errors
     assert form.cleaned_data["value"] == {}
 
@@ -361,6 +369,7 @@ def test_optional_parent_removes_required_nested_list():
     }
     form = make_form(
         schema,
+        presence_mode="explicit",
         initial={"section": {"items": ["a", "b"]}},
         data={
             "value-__jsonform_present__section": "False",
@@ -368,3 +377,14 @@ def test_optional_parent_removes_required_nested_list():
     )
     assert form.is_valid(), form.errors
     assert form.cleaned_data["value"] == {}
+
+
+def test_false_property_schema_retains_nested_array_error_path():
+    validator = JSONSchemaValidator(
+        {
+            "type": "array",
+            "items": {"properties": {"a/b~c": False}},
+        }
+    )
+    issue = validator.issues([{"a/b~c": 1}])[0]
+    assert issue.pointer == "/0/a~1b~0c"

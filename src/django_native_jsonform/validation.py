@@ -59,6 +59,10 @@ def normalize_schema(schema: Schema) -> Schema:
     result = {
         key: deepcopy(value) for key, value in schema.items() if key not in UI_KEYS
     }
+    if result.pop("nullable", False) is True and "type" in result:
+        types = result["type"]
+        types = [types] if isinstance(types, str) else list(types)
+        result["type"] = types if "null" in types else [*types, "null"]
     if isinstance(result.get("required"), bool):
         result.pop("required")
     if "readonly" in schema and "readOnly" not in result:
@@ -113,8 +117,27 @@ def _multiple_of(validator, divisor, instance, schema):
         yield ValidationError(f"{instance!r} is not a multiple of {divisor}")
 
 
+def _properties(validator, properties, instance, schema):
+    if not validator.is_type(instance, "object"):
+        return
+    for name, subschema in properties.items():
+        if name not in instance:
+            continue
+        if subschema is False:
+            # jsonschema's boolean-schema fast path skips descend's path prefix.
+            yield ValidationError(
+                f"False schema does not allow {instance[name]!r}",
+                path=[name],
+                schema_path=[name],
+            )
+        else:
+            yield from validator.descend(
+                instance[name], subschema, path=name, schema_path=name
+            )
+
+
 DocumentValidator = validators.extend(
-    Draft202012Validator, {"multipleOf": _multiple_of}
+    Draft202012Validator, {"multipleOf": _multiple_of, "properties": _properties}
 )
 
 

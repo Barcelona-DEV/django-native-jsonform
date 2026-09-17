@@ -45,6 +45,7 @@ nav:
       - Per-path customization: customization.md
       - Dynamic schemas and context: dynamic-schemas.md
       - Validation: validation.md
+      - DRF and JSON:API: rest-framework.md
       - Rendering and templates: rendering.md
       - Building extensions: extensions.md
   - Reference:

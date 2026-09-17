@@ -129,3 +129,13 @@ application, but semantic-versioning compatibility begins with `1.0`.
 ## License
 
 MIT
+
+## Optional DRF and JSON:API serializers
+
+Generate serializers from your JSON Schema using
+`django_native_jsonform.rest_framework.serializer_from_schema`, or attach
+`JSONSchemaField` to a model serializer's JSON attribute. Install the `drf` or
+`jsonapi` extra. Opt-in `json_api=True` converts nested keys using the project's
+JSON:API formatting configuration while keeping schema validation in one place.
+See the [DRF integration guide](https://barcelona-dev.github.io/django-native-jsonform/rest-framework/)
+for PATCH semantics, references and examples.
