@@ -47,6 +47,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+drf = ["djangorestframework>=3.15,<4"]
+jsonapi = ["djangorestframework-jsonapi>=8.1,<9"]
 test = [
   "coverage[toml]>=7.6",
   "pytest>=8.3",

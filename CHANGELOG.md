@@ -6,6 +6,14 @@ All notable changes are documented here. The project follows
 
 ## [Unreleased]
 
+### Added
+
+- Optional DRF schema-backed object serializer factory and JSON attribute field.
+- Opt-in recursive JSON:API input/output key formatting with collision detection.
+- Shared JSON Schema validation, context-selected schemas, explicit references,
+  complete-document PATCH semantics, and JSON Pointer validation errors.
+- Integration documentation and CI coverage for optional REST dependencies.
+
 ## [0.3.1] - 2026-09-17
 
 ### Fixed

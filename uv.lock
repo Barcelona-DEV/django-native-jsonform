@@ -447,6 +447,12 @@ docs = [
     { name = "mkdocs-material" },
     { name = "mkdocstrings", extra = ["python"] },
 ]
+drf = [
+    { name = "djangorestframework" },
+]
+jsonapi = [
+    { name = "djangorestframework-jsonapi" },
+]
 test = [
     { name = "coverage", extra = ["toml"] },
     { name = "pytest" },
@@ -458,6 +464,8 @@ requires-dist = [
     { name = "coverage", extras = ["toml"], marker = "extra == 'dev'", specifier = ">=7.6" },
     { name = "coverage", extras = ["toml"], marker = "extra == 'test'", specifier = ">=7.6" },
     { name = "django", specifier = ">=4.2,<7.0" },
+    { name = "djangorestframework", marker = "extra == 'drf'", specifier = ">=3.15,<4" },
+    { name = "djangorestframework-jsonapi", marker = "extra == 'jsonapi'", specifier = ">=8.1,<9" },
     { name = "jsonschema", extras = ["format-nongpl"], specifier = ">=4.23,<5" },
     { name = "mkdocs", marker = "extra == 'dev'", specifier = ">=1.6" },
     { name = "mkdocs", marker = "extra == 'docs'", specifier = ">=1.6" },
@@ -472,7 +480,35 @@ requires-dist = [
     { name = "referencing", specifier = ">=0.35,<1" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8" },
 ]
-provides-extras = ["test", "docs", "dev"]
+provides-extras = ["drf", "jsonapi", "test", "docs", "dev"]
+
+[[package]]
+name = "djangorestframework"
+version = "3.18.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django", version = "5.2.17", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "django", version = "6.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8a/2e/b3ce9d449b1ed9f9dd74fb7dfbc5f20860d5f40c2b4b10a2c3eabd8ff579/djangorestframework-3.18.1.tar.gz", hash = "sha256:605d79fa2ec2f02905492e5ea13d903c2d842d0b4c915a57f7bf02ab9f3c91dd", size = 915653, upload-time = "2026-09-07T18:04:08.288Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e8/83/5ed615e47339d8e65f62eb1a8133f8f046492eb3a25ad40d90acb9a208b3/djangorestframework-3.18.1-py3-none-any.whl", hash = "sha256:f1409d698967aaf82d5d98d76b549c8fba8bd92ebd0d83d24454508f72168dc2", size = 901373, upload-time = "2026-09-07T18:04:06.237Z" },
+]
+
+[[package]]
+name = "djangorestframework-jsonapi"
+version = "8.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django", version = "5.2.17", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "django", version = "6.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "djangorestframework" },
+    { name = "inflection" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/87/00/35e1620b771a52ff05d2c069beaa8e7379894091076d14deca7c27b27f01/djangorestframework_jsonapi-8.1.0.tar.gz", hash = "sha256:d02defa331c240cef136dc522f670e5535a2f1fad182dc04bd4abf4c4a747340", size = 84329, upload-time = "2025-10-17T11:59:04.524Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0e/24/73bddc908918d32e78eda0cd7739ae9da4631b3d6866209f544eb9c88815/djangorestframework_jsonapi-8.1.0-py2.py3-none-any.whl", hash = "sha256:179a1fc6ea6215062864f2b20b6126e96521434915620f87475b20f701184f13", size = 128249, upload-time = "2025-10-17T11:59:02.454Z" },
+]
 
 [[package]]
 name = "exceptiongroup"
@@ -523,6 +559,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/5f/f7/abb373e5757eaec4b922b92f97ec8d6d7e057cf06778247604fbc4e7c3f3/idna-3.19.tar.gz", hash = "sha256:5e0811a4383b21dc5838069f801c4fb62113b7447663d2530d2bd6e77b49bf15", size = 215237, upload-time = "2026-08-18T05:14:24.27Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/57/b0/0e52c878c53f245edd3a11020f20979b3f490f245af532c7cae3027754b5/idna-3.19-py3-none-any.whl", hash = "sha256:815e7be7a7806d54abb586dc943addc79e8b2ee16915059658cbeff4b1b43bf4", size = 68550, upload-time = "2026-08-18T05:14:22.343Z" },
+]
+
+[[package]]
+name = "inflection"
+version = "0.5.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e1/7e/691d061b7329bc8d54edbf0ec22fbfb2afe61facb681f9aaa9bff7a27d04/inflection-0.5.1.tar.gz", hash = "sha256:1a29730d366e996aaacffb2f1f1cb9593dc38e2ddd30c91250c6dde09ea9b417", size = 15091, upload-time = "2020-08-22T08:16:29.139Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/59/91/aa6bde563e0085a02a435aa99b49ef75b0a4b062635e606dab23ce18d720/inflection-0.5.1-py2.py3-none-any.whl", hash = "sha256:f38b2b640938a4f35ade69ac3d053042959b62a0f1076a5bbaa1b9526605a8a2", size = 9454, upload-time = "2020-08-22T08:16:27.816Z" },
 ]
 
 [[package]]
