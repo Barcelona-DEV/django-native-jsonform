@@ -331,6 +331,35 @@ class SchemaBinding:
                 prototype=prototype,
             )
 
+        nullable_types = schema.get("type")
+        if (
+            isinstance(nullable_types, list)
+            and "null" in nullable_types
+            and len(nullable_types) == 2
+            and not any(key in schema for key in ("oneOf", "enum", "choices", "const"))
+            and next(kind for kind in nullable_types if kind != "null")
+            in {"number", "integer"}
+        ):
+            # Use a native scalar control; document validation still uses the
+            # original nullable schema. Optional blank controls stay unset.
+            scalar_schema = {
+                **schema,
+                "type": next(kind for kind in nullable_types if kind != "null"),
+            }
+            return self._build_leaf(
+                scalar_schema,
+                path=path,
+                key_path=key_path,
+                initial=display_initial,
+                exists=exists,
+                required=required,
+                active=active,
+                read_only=read_only,
+                materialize=materialize,
+                override=override,
+                prototype=prototype,
+            )
+
         if isinstance(schema.get("type"), list):
             schema = {
                 **schema,
@@ -428,7 +457,9 @@ class SchemaBinding:
             return "dynamic-properties"
         if schema.get("additionalProperties") is True:
             return "dynamic-properties"
-        if schema.get("type") == "object" or "properties" in schema:
+        if "oneOf" not in schema and (
+            schema.get("type") == "object" or "properties" in schema
+        ):
             properties = schema.get("properties", {})
             if any("__" in name for name in properties):
                 return "reserved-property-names"
@@ -466,7 +497,12 @@ class SchemaBinding:
         choices = schema.get("enum", [])
         if None in choices or len({str(value) for value in choices}) != len(choices):
             return "ambiguous-enum"
-        if "type" not in schema and isinstance(schema.get("default"), (dict, list)):
+        if (
+            "type" not in schema
+            and "oneOf" not in schema
+            and "properties" not in schema
+            and isinstance(schema.get("default"), (dict, list))
+        ):
             return "structured-default"
         if "type" not in schema and not any(
             key in schema

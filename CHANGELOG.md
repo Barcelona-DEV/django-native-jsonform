@@ -6,6 +6,16 @@ All notable changes are documented here. The project follows
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-17
+
+### Fixed
+
+- Recurse into `oneOf` branches even when their parent declares `type: object`
+  or an object default, including inside arrays and local references.
+- Render nullable numbers and integers as native numeric controls rather than
+  a type selector and a JSON textarea. Document constraints remain enforced.
+- Cover nested rendering and lossless submission at multiple depths.
+
 ## [0.3.0] - 2026-09-14
 
 ### Changed

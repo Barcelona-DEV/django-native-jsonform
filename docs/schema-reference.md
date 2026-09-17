@@ -77,6 +77,18 @@ uses JSON equality: `true` and `1` differ, but `1` and `1.0` are the same number
 
 ## `oneOf`
 
+Branch children are rendered recursively, including when the union declares
+`type: object` or an object `default`. The same behavior applies inside object
+properties, array items and local `$ref` targets. Defaults do not force a raw
+JSON editor.
+
+Nullable numeric fields (`type: ["number", "null"]` or
+`type: ["integer", "null"]`) use one numeric input. Existing null values appear
+blank; clearing an optional populated value omits it under automatic presence.
+Minimum, maximum and document validation still apply. Schemas with no declared
+properties remain free-form JSON: the renderer cannot infer missing field
+definitions from a null value.
+
 Each branch becomes a selectable form section. Prefer a discriminator whose
 value is fixed with `const` or a one-item `enum`:
 
