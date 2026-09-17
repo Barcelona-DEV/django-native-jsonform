@@ -190,3 +190,47 @@ def test_unknown_properties_follow_schema_and_formats_are_opt_in():
     )
     with pytest.raises(serializers.ValidationError):
         field.run_validation("invalid")
+
+
+@override_settings(JSON_API_FORMAT_FIELD_NAMES="camelize")
+def test_named_dictionary_subtrees_preserve_keys_in_both_directions():
+    field = JSONSchemaField(
+        schema={
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "short_title": {"type": "string"},
+                    "color_tokens": {
+                        "type": "object",
+                        "properties": {"primarySoft": {"type": "string"}},
+                    },
+                },
+            },
+        },
+        json_api=True,
+        preserve_key_paths=("*.color_tokens",),
+    )
+    payload = [{"shortTitle": "Short", "colorTokens": {"primarySoft": "#fff"}}]
+    internal = field.run_validation(payload)
+    assert internal == [
+        {"short_title": "Short", "color_tokens": {"primarySoft": "#fff"}}
+    ]
+    assert field.to_representation(internal) == payload
+    internal[0]["color_tokens"]["primarySoft"] = "#000"
+    assert payload[0]["colorTokens"]["primarySoft"] == "#fff"
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"type": "string", "nullable": True},
+        {"type": ["string", "null"], "nullable": True},
+    ],
+)
+def test_nullable_schema_extension_accepts_explicit_null(schema):
+    field = JSONSchemaField(schema=schema)
+    assert field.run_validation(None) is None
+    assert field.to_representation(None) is None
+    with pytest.raises(serializers.ValidationError):
+        field.run_validation(42)

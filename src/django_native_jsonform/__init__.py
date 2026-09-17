@@ -5,7 +5,7 @@ from importlib.metadata import PackageNotFoundError, version
 try:
     __version__ = version("django-native-jsonform")
 except PackageNotFoundError:  # pragma: no cover - source checkout
-    __version__ = "0.3.0"
+    __version__ = "0.4.0"
 
 from .admin import JSONSchemaAdminMixin
 from .binding import BuildContext

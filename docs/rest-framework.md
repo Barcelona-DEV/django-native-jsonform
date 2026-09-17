@@ -133,3 +133,9 @@ can adapt existing form schema factories. Both adapters also accept
 `schema_registry`, `schema_resources`, `validate_formats` (default `False`), and
 `max_errors` (default `100`). Reference resources must be registered explicitly;
 validation never fetches remote schemas automatically.
+
+For JSON dictionaries whose keys are data (such as CSS token names), pass
+`preserve_key_paths=("**.colors", "**.dark_colors")`. Matching subtrees retain their
+keys in both directions; the property naming the subtree still follows JSON:API.
+Paths use internal property names, dots, `*` for one segment and `**` for any depth.
+Schema validation still applies inside preserved subtrees.

@@ -6,6 +6,8 @@ All notable changes are documented here. The project follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-17
+
 ### Added
 
 - Optional DRF schema-backed object serializer factory and JSON attribute field.
@@ -13,6 +15,12 @@ All notable changes are documented here. The project follows
 - Shared JSON Schema validation, context-selected schemas, explicit references,
   complete-document PATCH semantics, and JSON Pointer validation errors.
 - Integration documentation and CI coverage for optional REST dependencies.
+
+### Fixed
+
+- Preserve JSON Pointer paths for forbidden object properties.
+- Align presence-mode regression tests with the automatic default.
+- Exercise the selected Django version in the CI compatibility matrix.
 
 ## [0.3.1] - 2026-09-17
 

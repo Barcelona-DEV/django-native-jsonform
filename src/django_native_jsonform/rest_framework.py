@@ -6,13 +6,21 @@ from copy import deepcopy
 
 from rest_framework import serializers
 
+from .binding import path_matches
 from .validation import JSONSchemaValidator
 
 
-def _format_keys(value, formatter):
+def _format_keys(value, formatter, preserve_paths=(), path=(), *, incoming=False):
     """Format nested JSON keys without mutating data or silently losing collisions."""
+    if any(path_matches(pattern, path) for pattern in preserve_paths):
+        return deepcopy(value)
     if isinstance(value, list):
-        return [_format_keys(item, formatter) for item in value]
+        return [
+            _format_keys(
+                item, formatter, preserve_paths, (*path, index), incoming=incoming
+            )
+            for index, item in enumerate(value)
+        ]
     if not isinstance(value, dict):
         return value
     result = {}
@@ -24,7 +32,13 @@ def _format_keys(value, formatter):
             raise serializers.ValidationError(
                 f"Multiple keys resolve to '{formatted}'. Submit only one spelling."
             )
-        result[formatted] = _format_keys(child, formatter)
+        result[formatted] = _format_keys(
+            child,
+            formatter,
+            preserve_paths,
+            (*path, formatted if incoming else key),
+            incoming=incoming,
+        )
     return result
 
 
@@ -36,6 +50,7 @@ class _SchemaAdapter:
         *args,
         schema=None,
         json_api=False,
+        preserve_key_paths=(),
         schema_registry=None,
         schema_resources=None,
         validate_formats=False,
@@ -46,6 +61,7 @@ class _SchemaAdapter:
         if self.schema is None:
             raise TypeError("Pass a JSON schema or declare a class-level schema.")
         self.json_api = json_api
+        self.preserve_key_paths = tuple(preserve_key_paths)
         self.schema_registry = schema_registry
         self.schema_resources = deepcopy(schema_resources)
         self.validate_formats = validate_formats
@@ -89,14 +105,21 @@ class _SchemaAdapter:
 
     def to_internal_value(self, data):
         if self.json_api:
-            data = _format_keys(data, self._json_api_formatter(incoming=True))
+            data = _format_keys(
+                data,
+                self._json_api_formatter(incoming=True),
+                self.preserve_key_paths,
+                incoming=True,
+            )
         self._validate_document(data)
         return deepcopy(data)
 
     def to_representation(self, value):
         self._validate_document(value)
         if self.json_api:
-            return _format_keys(value, self._json_api_formatter(incoming=False))
+            return _format_keys(
+                value, self._json_api_formatter(incoming=False), self.preserve_key_paths
+            )
         return deepcopy(value)
 
 

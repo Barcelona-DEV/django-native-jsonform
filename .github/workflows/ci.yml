@@ -49,8 +49,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: uv sync --extra test --extra drf --extra jsonapi
       - run: uv pip install "Django~=${{ matrix.django-version }}.0"
-      - run: uv run coverage run -m pytest
-      - run: uv run coverage report
+      - run: uv run --no-sync coverage run -m pytest
+      - run: uv run --no-sync coverage report
 
   package:
     runs-on: ubuntu-latest
