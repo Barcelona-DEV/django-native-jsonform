@@ -67,7 +67,14 @@
     const budget = Number(array.dataset.jsonformMaxRenderItems || 250);
     const add = directChild(array, "[data-jsonform-add]");
     if (add) add.disabled = !enabled || live.length >= maximum || live.length >= budget;
-    live.forEach((item) => {
+    live.forEach((item, position) => {
+      const heading = directChild(item, ".jsonform-item-heading");
+      const up = heading?.querySelector('[data-jsonform-move="up"]');
+      const down = heading?.querySelector('[data-jsonform-move="down"]');
+      if (up) up.disabled = !enabled || position === 0;
+      if (down) down.disabled = !enabled || position === live.length - 1;
+      const label = heading?.querySelector("[data-jsonform-item-label]");
+      if (label) label.textContent = `Item ${position + 1}`;
       const remove = directChild(item, ".jsonform-item-heading")?.querySelector("[data-jsonform-remove]");
       if (remove) remove.disabled = !enabled || live.length <= minimum;
     });
@@ -98,7 +105,7 @@
     const count = directInput(array, "data-jsonform-count");
     if (!template || !items || !count) return;
     const deleted = Array.from(items.children).find((item) => truthy(directInput(item, "data-jsonform-delete")));
-    const index = deleted ? Array.from(items.children).indexOf(deleted) : Number.parseInt(count.value || "0", 10);
+    const index = deleted ? Number(deleted.dataset.jsonformIndex) : Number.parseInt(count.value || "0", 10);
     const token = array.dataset.jsonformIndexToken;
     const wrapper = document.createElement("div");
     wrapper.innerHTML = template.innerHTML.split(token).join(String(index));
@@ -109,8 +116,31 @@
       items.appendChild(item);
       count.value = String(index + 1);
     }
+    syncOrder(items);
     markPresent(button);
     refresh(array.closest("[data-jsonform-root]"));
+  }
+
+  function syncOrder(items) {
+    Array.from(items.children).forEach((item, index) => {
+      const order = directInput(item, "data-jsonform-order");
+      if (order) order.value = String(index);
+    });
+  }
+
+  function moveArrayItem(button) {
+    const item = button.closest("[data-jsonform-item]");
+    const items = item.parentElement;
+    const live = Array.from(items.children).filter((child) => !truthy(directInput(child, "data-jsonform-delete")));
+    const index = live.indexOf(item);
+    const target = live[index + (button.dataset.jsonformMove === "up" ? -1 : 1)];
+    if (!target) return;
+    if (button.dataset.jsonformMove === "up") items.insertBefore(item, target);
+    else items.insertBefore(item, target.nextSibling);
+    syncOrder(items);
+    markPresent(button);
+    refresh(items.closest("[data-jsonform-root]"));
+    button.focus();
   }
 
   function removeArrayItem(button) {
@@ -180,6 +210,7 @@
   document.addEventListener("click", function (event) {
     const button = event.target.closest("button");
     if (!button || button.disabled || !button.closest("[data-jsonform-root]")) return;
+    if (button.hasAttribute("data-jsonform-move")) moveArrayItem(button);
     if (button.hasAttribute("data-jsonform-add")) addArrayItem(button);
     if (button.hasAttribute("data-jsonform-remove")) removeArrayItem(button);
     if (button.hasAttribute("data-jsonform-unset")) togglePresence(button);

@@ -1,8 +1,9 @@
-<div class="jsonform-array-item{% if node.deleted %} jsonform-deleted{% endif %}" data-jsonform-item {% if node.deleted %}hidden{% endif %}>
+<div class="jsonform-array-item{% if node.deleted %} jsonform-deleted{% endif %}" data-jsonform-item data-jsonform-index="{{ index }}" {% if node.deleted %}hidden{% endif %}>
   {{ delete }}
+  {{ order }}
   <div class="jsonform-item-heading">
-    <span>Item {{ index }}</span>
-    {% if not node.read_only %}<button type="button" class="jsonform-delete" data-jsonform-remove>Remove</button>{% endif %}
+    <span data-jsonform-item-label>Item {{ index }}</span>
+    {% if not node.read_only %}<button type="button" data-jsonform-move="up" aria-label="Move item up" title="Move item up">↑</button><button type="button" data-jsonform-move="down" aria-label="Move item down" title="Move item down">↓</button><button type="button" class="jsonform-delete" data-jsonform-remove>Remove</button>{% endif %}
   </div>
   {{ child }}
 </div>

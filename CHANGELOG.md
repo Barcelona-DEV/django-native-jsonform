@@ -6,6 +6,14 @@ All notable changes are documented here. The project follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-17
+
+### Added
+
+- Up/down controls for editable array items, including nested arrays.
+- Stable per-item order metadata preserves values and unknown properties on save.
+- Boundary buttons are disabled; read-only arrays cannot be reordered.
+
 ## [0.4.0] - 2026-09-17
 
 ### Added

@@ -61,6 +61,7 @@ class Node:
     items: list[Node] = field(default_factory=list)
     prototype: Node | None = None
     count_key: str | None = None
+    order_key: str | None = None
     delete_key: str | None = None
     deleted: bool = False
     serializer: Callable[[Any], Any] | None = None
@@ -653,6 +654,17 @@ class SchemaBinding:
             item_exists = exists and item_has_display_value
             item_initial = values[index] if item_has_display_value else MISSING
             item_key_path = (*key_path, index)
+            order_key = self._internal_key("order", item_key_path)
+            self._add_field(
+                order_key,
+                forms.IntegerField(
+                    required=False,
+                    min_value=0,
+                    widget=forms.HiddenInput(attrs={"data-jsonform-order": ""}),
+                    disabled=prototype or not active or read_only,
+                ),
+                index,
+            )
             delete_key = self._internal_key("delete", item_key_path)
             deleted = self._raw_truthy(delete_key)
             self._add_field(
@@ -685,10 +697,20 @@ class SchemaBinding:
                 exists=item_exists,
                 initial=item_initial,
                 children=[child],
+                order_key=order_key,
                 delete_key=delete_key,
                 deleted=deleted,
             )
             node.items.append(item_node)
+
+        def submitted_order(item):
+            try:
+                return int(self._raw_value(item.order_key))
+            except (TypeError, ValueError):
+                return item.path[-1]
+
+        if not read_only:
+            node.items.sort(key=submitted_order)
 
         prototype_depth = sum(str(part).startswith("__index_") for part in key_path)
         token = f"__index_{prototype_depth}__"
@@ -718,6 +740,17 @@ class SchemaBinding:
             ),
             False,
         )
+        prototype_order_key = self._internal_key("order", prototype_key_path)
+        self._add_field(
+            prototype_order_key,
+            forms.IntegerField(
+                required=False,
+                min_value=0,
+                widget=forms.HiddenInput(attrs={"data-jsonform-order": ""}),
+                disabled=True,
+            ),
+            0,
+        )
         node.prototype = Node(
             kind="array_item",
             path=(*path, "*"),
@@ -726,6 +759,7 @@ class SchemaBinding:
             active=False,
             read_only=read_only,
             children=[prototype_child],
+            order_key=prototype_order_key,
             delete_key=prototype_delete_key,
             override={"index_token": token},
         )

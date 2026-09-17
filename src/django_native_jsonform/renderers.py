@@ -77,6 +77,7 @@ class JSONFormRenderer:
                 node.prototype.override.get("index_token") if node.prototype else ""
             )
         elif node.kind == "array_item":
+            context["order"] = binding.bound_field(node.order_key)
             context["delete"] = binding.bound_field(node.delete_key)
             context["child"] = self.render_node(binding, node.children[0])
             context["index"] = node.override.get(

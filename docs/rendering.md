@@ -77,3 +77,12 @@ Custom fields and widgets bring their own `Media` assets in the usual Django
 way. The composite widget aggregates the media from its generated child
 widgets after the form mixin seeds the binding. The package deliberately does
 not bundle jQuery, a CSS framework, or a specific admin theme.
+
+## Array ordering
+
+Editable array items include up/down buttons. Moving an item moves its complete
+subtree, preserving control identities and unknown stored properties. Nested arrays
+maintain independent order. Boundary buttons are disabled and read-only arrays
+hide the controls. Older submissions without order metadata keep their original
+order. Custom array-item templates should render `{{ order }}` alongside
+`{{ delete }}` and preserve `data-jsonform-index="{{ index }}"` on the item.
