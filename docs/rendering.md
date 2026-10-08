@@ -90,3 +90,43 @@ order. Custom array-item templates should render `{{ order }}` alongside
 Static CSS and JavaScript use versioned filenames. When changing either asset,
 bump the filenames and widget media paths together so browser/CDN caches cannot
 combine an older script with newer templates. Deployments must run collectstatic.
+
+## Conditional visibility
+
+A field schema may declare a presentation rule based on a sibling's value:
+
+```python
+{
+    "type": "integer",
+    "visible_when": {"field": "mode", "not_in": ["automatic"]},
+    "visibility_warning": "Remove this value before using automatic mode.",
+}
+```
+
+Use `in` or `not_in` with a list of string values. Rules are relative to the
+field's parent object, including nested objects. Empty inapplicable controls are
+hidden. Populated controls and errors remain visible, with the supplied warning.
+Visibility never disables controls, changes presence markers, or removes stored
+values. Apply business validation separately on the server.
+
+## Collapsed optional sections
+
+Opt in through field overrides without changing the JSON schema or document:
+
+```python
+overrides = {
+    "filter": {
+        "presence_mode": "explicit",
+        "enable_label": "Use filter",
+        "disable_label": "Remove filter",
+    },
+}
+```
+
+An absent optional object or union starts collapsed. Existing values start
+expanded. The native use/remove control explicitly includes or omits the section
+on submission; re-enabling before saving retains its current control values.
+Required sections are not collapsed. Scalar optional fields keep their native
+use/remove control. Schemas without these options retain their previous rendering.
+The widget includes the JavaScript automatically through its media; deploy the
+versioned static assets with `collectstatic`.

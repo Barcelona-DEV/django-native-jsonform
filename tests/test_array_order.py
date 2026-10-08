@@ -103,6 +103,6 @@ def test_nested_arrays_keep_independent_order():
 
 def test_media_uses_versioned_assets_and_arrows_share_a_container():
     form = OrderedForm(initial={"value": [{"title": "A"}, {"title": "B"}]})
-    assert "json_forms.0.5.1.js" in str(form.media)
-    assert "json_forms.0.5.1.css" in str(form.media)
+    assert "json_forms.0.6.0.js" in str(form.media)
+    assert "json_forms.0.6.0.css" in str(form.media)
     assert 'class="jsonform-order-controls"' in str(form["value"])

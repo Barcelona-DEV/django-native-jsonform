@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from typing import Any
 
 from django.template.loader import render_to_string
+from django.utils.html import format_html
 from django.utils.safestring import SafeString, mark_safe
 
 from .binding import Node, SchemaBinding
@@ -83,4 +85,28 @@ class JSONFormRenderer:
             context["index"] = node.override.get(
                 "index_token", node.path[-1] if node.path else ""
             )
-        return mark_safe(render_to_string(template_name, context))
+        html = mark_safe(render_to_string(template_name, context))
+        if (
+            node.override.get("presence_mode") == "explicit"
+            and node.override.get("enable_label")
+            and not node.required
+        ):
+            html = format_html(
+                '<div data-jsonform-optional-section data-enable-label="{}" '
+                'data-disable-label="{}">{}</div>',
+                node.override["enable_label"],
+                node.override["disable_label"],
+                html,
+            )
+        rule = node.schema.get("visible_when")
+        if not rule:
+            return html
+        return format_html(
+            '<div data-jsonform-visibility="{}" data-jsonform-visibility-parent="{}">'
+            '{}<div class="help" data-jsonform-visibility-warning hidden>'
+            "{}</div></div>",
+            json.dumps(rule),
+            ".".join(str(part) for part in node.path[:-1]),
+            html,
+            node.schema.get("visibility_warning", ""),
+        )
