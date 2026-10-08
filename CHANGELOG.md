@@ -6,6 +6,17 @@ All notable changes are documented here. The project follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-08
+
+### Added
+
+- Declarative `visible_when` presentation rules based on sibling field values.
+- Preserve populated or invalid inapplicable fields with explanatory warnings.
+- Opt-in collapsed optional sections using native explicit presence controls and
+  configurable enable/remove labels.
+- Cache-safe 0.6.0 static assets; existing schemas and JSON serialization remain
+  unchanged unless an operator explicitly removes an optional section.
+
 ## [0.5.1] - 2026-09-17
 
 ### Fixed
